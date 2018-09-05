@@ -1,0 +1,7 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea/python/.pytest_cache
+python/build
+python/pyclash.egg-info
+python/.pytest_cache/
+python/dist/
+.pytest_cache
