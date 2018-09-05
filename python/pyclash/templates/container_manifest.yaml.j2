@@ -1,0 +1,16 @@
+spec:
+  containers:
+    - name: {{ vm_name }}
+      image: {{ image }}
+      args:
+        - bash
+        - -c
+        - echo "$CLASH_RUNNER" > /tmp/clash-runner.sh && bash /tmp/clash-runner.sh
+      env:
+        - name: CLASH_RUNNER
+          value: |
+            {{ clash_runner_script }}
+        - name: SCRIPT
+          value: |
+            {{ script }}
+      restartPolicy: Never

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+function __trap_clean_up {
+  gcloud compute instances delete {{ vm_name }} --quiet --zone {{ zone }}
+}
+
+trap __trap_clean_up EXIT
+
+echo "$SCRIPT" > script.sh
+chmod +x script.sh
+./script.sh
