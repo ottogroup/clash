@@ -9,14 +9,11 @@ function task_usage {
 
 function task_lint {
   shellcheck run.sh
+  pipenv run black --check python
 }
 
 function task_format {
-  pipenv run autopep8 --in-place --recursive python
-}
-
-function task_format {
-  shellcheck run.sh
+  pipenv run black python
 }
 
 function task_test {
