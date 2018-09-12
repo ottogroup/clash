@@ -7,5 +7,5 @@ def test_create_clash_job():
         echo 'hello world'
     """
 
-    job = clash.create_job('project-id', 'zone', script)
+    job = clash.create_job("project-id", "zone", script)
     job.run()
