@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 import yaml
+import docker
 
 from pyclash import clash
 
@@ -26,6 +27,17 @@ class InstanceStub:
 
     def execute(self):
         self.running = True
+
+        manifest = yaml.load(self.body["metadata"]["items"][0]["value"])
+        runner = manifest["spec"]["containers"][0]["env"][0]["value"]
+        script = manifest["spec"]["containers"][0]["env"][1]["value"]
+        image = manifest["spec"]["containers"][0]["image"]
+        command = manifest["spec"]["containers"][0]["args"]
+
+        client = docker.from_env()
+        self.out = client.containers.run(
+            image, command, environment={"SCRIPT": script, "CLASH_RUNNER": runner}, stderr=True
+        )
 
 
 class CloudSdkStub:
@@ -59,6 +71,20 @@ class TestContainerManifest:
         assert loaded_manifest["spec"]["containers"][0]["image"] == "google/cloud-sdk"
         assert (
             loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "myscript\n"
+        )
+
+    def test_manifest_can_contain_multiline_script(self):
+        script = """
+        a
+        b
+        """
+        manifest = clash.ContainerManifest("myvm", script, TEST_JOB_CONFIG)
+
+        rendered = manifest.to_yaml()
+
+        loaded_manifest = yaml.load(rendered)
+        assert (
+            loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "\na\nb\n"
         )
 
 
@@ -134,3 +160,31 @@ class TestJob:
         assert len(self.gcloud.instances) == 1
         assert self.gcloud.instances[0].body["name"] == "clash-job-1234"
         assert self.gcloud.instances[0].running
+
+    def test_job_actually_runs_script(self):
+        job = clash.create_job("echo hello", gcloud=self.gcloud)
+
+        job.run()
+
+        assert b"hello\n" in self.gcloud.instances[0].out
+
+    def test_job_shutdowns_machine_eventually(self):
+        job = clash.create_job("echo hello", gcloud=self.gcloud)
+
+        job.run()
+
+        assert b"gcloud.compute.instances.delete" in self.gcloud.instances[0].out
+
+    def test_job_runs_multiline_script(self):
+        script = """
+        echo 'hello'
+        the_world_is_flat=true
+        if [ "$the_world_is_flat" = true ] ; then
+            echo 'world'
+        fi
+        """
+        job = clash.create_job(script, gcloud=self.gcloud)
+
+        job.run()
+
+        assert b"hello\nworld\n" in self.gcloud.instances[0].out

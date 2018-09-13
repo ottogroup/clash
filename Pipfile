@@ -9,6 +9,7 @@ pytest = "*"
 "jinja2" = "*"
 google-api-python-client = "*"
 pyyaml = "*"
+docker = "*"
 
 [dev-packages]
 
