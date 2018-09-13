@@ -18,7 +18,7 @@ setup(name='clash',
       install_requires=install_requires,
       entry_points={
           'console_scripts': [
-              'clash = pyclash.clash:main',
+              'clash = pyclash.clash:cli',
               ]
           },
       )
