@@ -5,6 +5,10 @@ name = "pypi"
 
 [packages]
 black = "*"
+pytest = "*"
+"jinja2" = "*"
+google-api-python-client = "*"
+pyyaml = "*"
 
 [dev-packages]
 
