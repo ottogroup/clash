@@ -2,6 +2,7 @@ import argparse
 import uuid
 
 import jinja2
+import json
 import googleapiclient.discovery
 
 config = {
@@ -21,6 +22,7 @@ config = {
     ],
 }
 
+
 class CloudSdk:
     def __init__(self):
         pass
@@ -31,7 +33,9 @@ class CloudSdk:
 
 class ContainerManifest:
     def __init__(self, vm_name, script, image):
-        self.template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath="../templates"))
+        self.template_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(searchpath="../templates")
+        )
         self.vm_name = vm_name
         self.script = script
         self.image = image
@@ -48,9 +52,12 @@ class ContainerManifest:
             script=self.script,
         )
 
+
 class MachineConfig:
     def __init__(self, compute, vm_name, container_manifest, machine_type):
-        self.template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath="../templates"))
+        self.template_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(searchpath="../templates")
+        )
         self.compute = compute
         self.vm_name = vm_name
         self.container_manifest = container_manifest
@@ -71,7 +78,7 @@ class MachineConfig:
             config["zone"], self.machine_type
         )
 
-        return self.template_env.get_template("machine_config.json.j2").render(
+        rendered = self.template_env.get_template("machine_config.json.j2").render(
             vm_name=self.vm_name,
             source_image=source_disk_image,
             project_id=config["project_id"],
@@ -80,6 +87,8 @@ class MachineConfig:
             region=config["region"],
             scopes=config["scopes"],
         )
+
+        return json.loads(rendered)
 
 
 class Job:
