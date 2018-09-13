@@ -7,12 +7,12 @@ import googleapiclient.discovery
 
 config = {
     "project_id": "yourproject-foobar",
-    "image": "google/cloud-sdk",
+    "default_image": "google/cloud-sdk",
     "zone": "europe-west1-b",
     "region": "europe-west1",
     "default_machine_type": "n1-standard-1",
     "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
-    "scopes": [
+    "default_scopes": [
         "https://www.googleapis.com/auth/bigquery",
         "https://www.googleapis.com/auth/compute",
         "https://www.googleapis.com/auth/devstorage.read_write",
@@ -78,39 +78,39 @@ class MachineConfig:
             config["zone"], self.machine_type
         )
 
-        rendered = self.template_env.get_template("machine_config.json.j2").render(
+        rendered = json.loads(self.template_env.get_template("machine_config.json.j2").render(
             vm_name=self.vm_name,
             source_image=source_disk_image,
             project_id=config["project_id"],
             machine_type=self.machine_type,
-            container_manifest=self.container_manifest,
             region=config["region"],
-            scopes=config["scopes"],
-        )
+            scopes=config["default_scopes"],
+        ))
 
-        return json.loads(rendered)
+        rendered["metadata"]["items"][0]["value"] = self.container_manifest
 
+        return rendered
 
 class Job:
-    def __init__(self, script):
+    def __init__(self, script, gcloud, machine_type, image):
         self.script = script
         self.name = "clash-job-{}".format(uuid.uuid1())
+        self.image = image
+        self.compute = gcloud.get_compute_client()
+        self.machine_type = machine_type
 
-    def _create_machine_config(self, compute):
-
-        template_loader = jinja2.FileSystemLoader(searchpath="../templates")
-        template_env = jinja2.Environment(loader=template_loader)
-
+    def _create_machine_config(self):
         container_manifest = ContainerManifest(
-            self.name, self.script, config["image"]
+            self.name, self.script, self.image
         ).to_yaml()
 
+        return MachineConfig(self.compute, self.name, container_manifest, self.machine_type).to_dict()
+
     def run(self, gcloud=CloudSdk()):
-        compute = gcloud.get_compute_client()
-        machine_config = self._create_machine_config(compute)
+        machine_config = self._create_machine_config()
 
         operation = (
-            compute.instances()
+            self.compute.instances()
             .insert(
                 project=config["project_id"], zone=config["zone"], body=machine_config
             )
@@ -118,8 +118,8 @@ class Job:
         )
 
 
-def create_job(script):
-    return Job(script)
+def create_job(script, gcloud=CloudSdk(), machine_type=config["default_machine_type"], image=config["default_image"]):
+    return Job(script, gcloud, machine_type, image)
 
 
 def main():
