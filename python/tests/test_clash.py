@@ -133,8 +133,8 @@ class TestMachineConfig:
 
         assert machine_config[
             "machineType"
-        ] == "https://www.googleapis.com/compute/beta/projects/{}/{}".format(
-            TEST_JOB_CONFIG["project_id"], TEST_JOB_CONFIG["machine_type"]
+        ] == "https://www.googleapis.com/compute/beta/projects/{}/zones/{}/machineTypes/{}".format(
+            TEST_JOB_CONFIG["project_id"], TEST_JOB_CONFIG["zone"], TEST_JOB_CONFIG["machine_type"]
         )
 
 

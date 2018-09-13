@@ -66,7 +66,7 @@ class MachineConfig:
                 vm_name=self.vm_name,
                 source_image=source_disk_image,
                 project_id=self.job_config["project_id"],
-                machine_type=self.job_config["machine_type"],
+                machine_type=machine_type,
                 region=self.job_config["region"],
                 scopes=self.job_config["scopes"],
                 subnetwork=self.job_config["subnetwork"],
