@@ -4,6 +4,7 @@ import json
 
 import jinja2
 import googleapiclient.discovery
+import click
 
 
 class CloudSdk:
@@ -126,11 +127,15 @@ def create_job(script, gcloud=CloudSdk()):
     }
     return Job(script, gcloud, DEFAULT_JOB_CONFIG)
 
+@click.group()
+def cli():
+    pass
 
-def main():
-    job = create_job("echo 'hello world';")
+@click.argument('raw_script')
+@cli.command()
+def run(raw_script):
+    job = create_job(raw_script)
     job.run()
-
 
 if __name__ == "__main__":
     main()

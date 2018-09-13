@@ -10,6 +10,7 @@ pytest = "*"
 google-api-python-client = "*"
 pyyaml = "*"
 docker = "*"
+click = "*"
 
 [dev-packages]
 
