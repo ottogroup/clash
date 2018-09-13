@@ -19,7 +19,7 @@ function task_format {
 function task_test {
   cd python
   pipenv run python setup.py develop
-  pipenv run pytest
+  pipenv run pytest -s
 }
 
 
