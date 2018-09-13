@@ -18,7 +18,7 @@ class InstanceStub:
 class CloudSdkStub:
     def __init__(self):
         self.compute = MagicMock()
-        self.compute.images.getFromFamily.return_value.execute.return_value = {
+        self.compute.images.return_value.getFromFamily.return_value.execute.return_value = {
             "selfLink": "a_source_image"
         }
 
@@ -36,7 +36,7 @@ class CloudSdkStub:
 
 
 class TestContainerManifest:
-    def test_rendering_contains_arguments(self):
+    def test_manifest_contains_expected_values(self):
         manifest = clash.ContainerManifest("myvm", "myscript", "myimage")
 
         rendered = manifest.to_yaml()
@@ -53,15 +53,48 @@ class TestMachineConfig:
     def setup(self):
         self.gcloud = CloudSdkStub()
 
-    def test_to_json_creates_config(self):
+    def test_config_contains_vmname(self):
         manifest = clash.MachineConfig(
             self.gcloud.get_compute_client(),
             "myvm",
-            "mycontainermanifest",
-            "n1-standard-1",
+            "_",
+            "_",
         )
 
-        machine_config_json = manifest.to_dict()
+        machine_config = manifest.to_dict()
+
+        assert machine_config["name"] == "myvm"
+
+    def test_config_contains_manifest(self):
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(),
+            "_",
+            "mycontainermanifest",
+            "_",
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert (
+            machine_config["metadata"]["items"][0]["key"] == "gce-container-declaration"
+        )
+        assert machine_config["metadata"]["items"][0]["value"] == "mycontainermanifest"
+
+    def test_config_contains_machine_type(self):
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(),
+            "_",
+            "_",
+            "n1-standard-32",
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config[
+            "machineType"
+        ] == "https://www.googleapis.com/compute/beta/projects/{}/{}".format(
+            clash.config["project_id"], "n1-standard-32"
+        )
 
 
 class TestJob:

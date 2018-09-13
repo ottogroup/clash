@@ -40,7 +40,7 @@
       "email": "default",
       "scopes": [
         {% for scope in scopes %}
-          "{{ scope }}"
+          "{{ scope }}"{{ "," if not loop.last }}
         {% endfor %}
       ]
     }
