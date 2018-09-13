@@ -1,12 +1,14 @@
 import argparse
 import uuid
 
-from jinja2 import Template
+import jinja2
 import googleapiclient.discovery
 
 config = {
+    "project_id": "yourproject-foobar",
     "image": "google/cloud-sdk",
     "zone": "europe-west1-b",
+    "region": "europe-west1",
     "machine_type": "n1-standard-1",
     "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
     "scopes": [
@@ -19,18 +21,49 @@ config = {
     ]
 }
 
+class CloudSdk:
+    def __init__(self):
+        pass
+
+    def get_compute_client(self):
+        return googleapiclient.discovery.build("compute", "v1")
+
+class ContainerManifest:
+    def __init__(self, vm_name, script, image):
+        template_loader = jinja2.FileSystemLoader(searchpath="../templates")
+        self.template_env = jinja2.Environment(loader=template_loader)
+        self.vm_name = vm_name
+        self.script = script
+        self.image = image
+
+    def render(self):
+        clash_runner_script = self.template_env.get_template("clash_runner.sh.j2").render(
+            vm_name=self.vm_name, zone=config["zone"]
+        )
+
+        return self.template_env.get_template(
+            "container_manifest.yaml.j2"
+        ).render(
+            vm_name=self.vm_name,
+            image=self.image,
+            clash_runner_script=clash_runner_script,
+            script=self.script,
+        )
+
+class MachineConfig:
+    def __init__(self):
+        pass
 
 class Job:
-    def __init__(self, project_id, script):
-        self.project_id = project_id
+    def __init__(self, script):
         self.script = script
-        self.vm_name = "clash-job-{}".format(uuid.uuid1())
+        self.name = "clash-job-{}".format(uuid.uuid1())
 
     def _create_machine_config(self, compute):
         image_response = (
             compute.images()
             .getFromFamily(
-                project=config["image"]["project"], family=config["image"]["family"]
+                project=config["disk_image"]["project"], family=config["disk_image"]["family"]
             )
             .execute()
         )
@@ -40,26 +73,15 @@ class Job:
             config["zone"], config["machine_type"]
         )
 
-        template_loader = jinja2.FileSystemLoader(searchpath="./templates")
+        template_loader = jinja2.FileSystemLoader(searchpath="../templates")
         template_env = jinja2.Environment(loader=template_loader)
 
-        clash_runner_script = template_env.get_template("clash_runner.sh.j2").render(
-            vm_name=vm_name, zone=config["zone"]
-        )
-
-        container_manifest = template_env.get_template(
-            "container_manifest.yaml.j2"
-        ).render(
-            vm_name=vm_name,
-            image=config["image"],
-            clash_runner_script=clash_runner_script,
-            script=self.script,
-        )
+        container_manifest = ContainerManifest(self.name, self.script, config['image']).render()
 
         return template_env.get_template("machine_config.json.j2").render(
-            vm_name=vm_name,
+            vm_name=self.name,
             source_image=source_disk_image,
-            project_id=self.project_id,
+            project_id=config['project_id'],
             machine_type=machine_type,
             container_manifest=container_manifest,
             region=config["region"],
@@ -67,25 +89,23 @@ class Job:
         )
 
 
-    def run(self):
-        compute = googleapiclient.discovery.build("compute", "v1")
-        machine_config = _create_machine_config(compute)
+    def run(self, gcloud=CloudSdk()):
+        compute = gcloud.get_compute_client()
+        machine_config = self._create_machine_config(compute)
 
         operation = (
             compute.instances()
-            .insert(project=self.project_id, zone=config["zone"], body=machine_config)
+            .insert(project=config["project_id"], zone=config["zone"], body=machine_config)
             .execute()
         )
 
 
-def create_job(project_id, zone, script):
-    return Job(project_id, zone, script)
+def create_job(script):
+    return Job(script)
 
 
 def main():
-    job = create_job(
-        "yourproject-hackingdays2018-dev", "europe-west1-b", "echo 'hello world';"
-    )
+    job = create_job("echo 'hello world';")
     job.run()
 
 

@@ -9,7 +9,7 @@ spec:
       env:
         - name: CLASH_RUNNER
           value: |
-            {{ clash_runner_script }}
+            {{ clash_runner_script | indent(12, False) }}
         - name: SCRIPT
           value: |
             {{ script }}
