@@ -3,6 +3,19 @@ import yaml
 
 from pyclash import clash
 
+TEST_JOB_CONFIG = {
+    "project_id": "yourproject-foobar",
+    "image": "google/cloud-sdk",
+    "zone": "europe-west1-b",
+    "region": "europe-west1",
+    "machine_type": "n1-standard-1",
+    "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
+    "scopes": [
+        "https://www.googleapis.com/auth/bigquery",
+        "https://www.googleapis.com/auth/compute",
+    ],
+}
+
 
 class InstanceStub:
     def __init__(self, project, zone, body):
@@ -37,13 +50,13 @@ class CloudSdkStub:
 
 class TestContainerManifest:
     def test_manifest_contains_expected_values(self):
-        manifest = clash.ContainerManifest("myvm", "myscript", "myimage")
+        manifest = clash.ContainerManifest("myvm", "myscript", TEST_JOB_CONFIG)
 
         rendered = manifest.to_yaml()
 
         loaded_manifest = yaml.load(rendered)
         assert loaded_manifest["spec"]["containers"][0]["name"] == "myvm"
-        assert loaded_manifest["spec"]["containers"][0]["image"] == "myimage"
+        assert loaded_manifest["spec"]["containers"][0]["image"] == "google/cloud-sdk"
         assert (
             loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "myscript\n"
         )
@@ -52,11 +65,14 @@ class TestContainerManifest:
 class TestMachineConfig:
     def setup(self):
         self.gcloud = CloudSdkStub()
-        self.container_manifest = clash.ContainerManifest("_", "", "_")
+        self.container_manifest = clash.ContainerManifest("_", "", TEST_JOB_CONFIG)
 
     def test_config_contains_vmname(self):
         manifest = clash.MachineConfig(
-            self.gcloud.get_compute_client(), "myvm", self.container_manifest, "_"
+            self.gcloud.get_compute_client(),
+            "myvm",
+            self.container_manifest,
+            TEST_JOB_CONFIG,
         )
 
         machine_config = manifest.to_dict()
@@ -67,8 +83,8 @@ class TestMachineConfig:
         manifest = clash.MachineConfig(
             self.gcloud.get_compute_client(),
             "_",
-            clash.ContainerManifest("myname", "_", "_"),
-            "_",
+            clash.ContainerManifest("myname", "_", TEST_JOB_CONFIG),
+            TEST_JOB_CONFIG,
         )
 
         machine_config = manifest.to_dict()
@@ -84,7 +100,7 @@ class TestMachineConfig:
             self.gcloud.get_compute_client(),
             "_",
             self.container_manifest,
-            "n1-standard-32",
+            TEST_JOB_CONFIG,
         )
 
         machine_config = manifest.to_dict()
@@ -92,7 +108,7 @@ class TestMachineConfig:
         assert machine_config[
             "machineType"
         ] == "https://www.googleapis.com/compute/beta/projects/{}/{}".format(
-            clash.config["project_id"], "n1-standard-32"
+            TEST_JOB_CONFIG["project_id"], TEST_JOB_CONFIG["machine_type"]
         )
 
 
