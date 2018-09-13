@@ -78,18 +78,21 @@ class MachineConfig:
             config["zone"], self.machine_type
         )
 
-        rendered = json.loads(self.template_env.get_template("machine_config.json.j2").render(
-            vm_name=self.vm_name,
-            source_image=source_disk_image,
-            project_id=config["project_id"],
-            machine_type=self.machine_type,
-            region=config["region"],
-            scopes=config["default_scopes"],
-        ))
+        rendered = json.loads(
+            self.template_env.get_template("machine_config.json.j2").render(
+                vm_name=self.vm_name,
+                source_image=source_disk_image,
+                project_id=config["project_id"],
+                machine_type=self.machine_type,
+                region=config["region"],
+                scopes=config["default_scopes"],
+            )
+        )
 
-        rendered["metadata"]["items"][0]["value"] = self.container_manifest
+        rendered["metadata"]["items"][0]["value"] = self.container_manifest.to_yaml()
 
         return rendered
+
 
 class Job:
     def __init__(self, script, gcloud, machine_type, image):
@@ -100,11 +103,11 @@ class Job:
         self.machine_type = machine_type
 
     def _create_machine_config(self):
-        container_manifest = ContainerManifest(
-            self.name, self.script, self.image
-        ).to_yaml()
+        container_manifest = ContainerManifest(self.name, self.script, self.image)
 
-        return MachineConfig(self.compute, self.name, container_manifest, self.machine_type).to_dict()
+        return MachineConfig(
+            self.compute, self.name, container_manifest, self.machine_type
+        ).to_dict()
 
     def run(self, gcloud=CloudSdk()):
         machine_config = self._create_machine_config()
@@ -118,7 +121,12 @@ class Job:
         )
 
 
-def create_job(script, gcloud=CloudSdk(), machine_type=config["default_machine_type"], image=config["default_image"]):
+def create_job(
+    script,
+    gcloud=CloudSdk(),
+    machine_type=config["default_machine_type"],
+    image=config["default_image"],
+):
     return Job(script, gcloud, machine_type, image)
 
 

@@ -52,13 +52,11 @@ class TestContainerManifest:
 class TestMachineConfig:
     def setup(self):
         self.gcloud = CloudSdkStub()
+        self.container_manifest = clash.ContainerManifest("_", "", "_")
 
     def test_config_contains_vmname(self):
         manifest = clash.MachineConfig(
-            self.gcloud.get_compute_client(),
-            "myvm",
-            "_",
-            "_",
+            self.gcloud.get_compute_client(), "myvm", self.container_manifest, "_"
         )
 
         machine_config = manifest.to_dict()
@@ -69,7 +67,7 @@ class TestMachineConfig:
         manifest = clash.MachineConfig(
             self.gcloud.get_compute_client(),
             "_",
-            "mycontainermanifest",
+            clash.ContainerManifest("myname", "_", "_"),
             "_",
         )
 
@@ -78,13 +76,14 @@ class TestMachineConfig:
         assert (
             machine_config["metadata"]["items"][0]["key"] == "gce-container-declaration"
         )
-        assert machine_config["metadata"]["items"][0]["value"] == "mycontainermanifest"
+        manifest = yaml.load(machine_config["metadata"]["items"][0]["value"])
+        assert manifest["spec"]["containers"][0]["name"] == "myname"
 
     def test_config_contains_machine_type(self):
         manifest = clash.MachineConfig(
             self.gcloud.get_compute_client(),
             "_",
-            "_",
+            self.container_manifest,
             "n1-standard-32",
         )
 
