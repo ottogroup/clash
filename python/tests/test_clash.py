@@ -105,14 +105,17 @@ class TestJob:
     def test_creates_job(self, mock_uuid_call):
         mock_uuid_call.return_value = 1234
 
-        job = clash.create_job("")
+        job = clash.create_job("", gcloud=self.gcloud)
 
         assert "clash-job-1234" == job.name
 
-    def test_running_a_job_creates_a_running_instance(self):
-        job = clash.create_job("")
+    @patch("uuid.uuid1")
+    def test_running_a_job_creates_a_running_instance(self, mock_uuid_call):
+        mock_uuid_call.return_value = 1234
+        job = clash.create_job("", gcloud=self.gcloud)
 
-        job.run(gcloud=self.gcloud)
+        job.run()
 
         assert len(self.gcloud.instances) == 1
+        assert self.gcloud.instances[0].body["name"] == "clash-job-1234"
         assert self.gcloud.instances[0].running
