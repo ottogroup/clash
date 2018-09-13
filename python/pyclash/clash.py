@@ -69,6 +69,7 @@ class MachineConfig:
                 machine_type=self.job_config["machine_type"],
                 region=self.job_config["region"],
                 scopes=self.job_config["scopes"],
+                subnetwork=self.job_config["subnetwork"],
             )
         )
 
@@ -111,6 +112,7 @@ def create_job(script, gcloud=CloudSdk()):
         "image": "google/cloud-sdk",
         "zone": "europe-west1-b",
         "region": "europe-west1",
+        "subnetwork": "default-europe-west1",
         "machine_type": "n1-standard-1",
         "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
         "scopes": [

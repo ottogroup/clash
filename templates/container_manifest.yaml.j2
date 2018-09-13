@@ -12,5 +12,5 @@ spec:
             {{ clash_runner_script | indent(12, False) }}
         - name: SCRIPT
           value: |
-            {{ script }}
+            {{ script | indent(12, False) }}
       restartPolicy: Never
