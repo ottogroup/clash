@@ -3,6 +3,7 @@ import yaml
 
 from pyclash import clash
 
+
 class InstanceStub:
     def __init__(self, project, zone, body):
         self.project = project
@@ -13,6 +14,7 @@ class InstanceStub:
     def execute(self):
         self.running = True
 
+
 class CloudSdkStub:
     def __init__(self):
         self.compute = MagicMock()
@@ -21,25 +23,45 @@ class CloudSdkStub:
         }
 
         self.instances = []
+
         def insert(project, zone, body):
             instance = InstanceStub(project, zone, body)
             self.instances.append(instance)
             return instance
+
         self.compute.instances.return_value.insert.side_effect = insert
 
     def get_compute_client(self):
         return self.compute
 
+
 class TestContainerManifest:
     def test_rendering_contains_arguments(self):
         manifest = clash.ContainerManifest("myvm", "myscript", "myimage")
 
-        rendered = manifest.render()
+        rendered = manifest.to_yaml()
 
         loaded_manifest = yaml.load(rendered)
-        assert loaded_manifest['spec']['containers'][0]['name'] == "myvm"
-        assert loaded_manifest['spec']['containers'][0]['image'] == "myimage"
-        assert loaded_manifest['spec']['containers'][0]['env'][1]['value'] == "myscript\n"
+        assert loaded_manifest["spec"]["containers"][0]["name"] == "myvm"
+        assert loaded_manifest["spec"]["containers"][0]["image"] == "myimage"
+        assert (
+            loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "myscript\n"
+        )
+
+
+class TestMachineConfig:
+    def setup(self):
+        self.gcloud = CloudSdkStub()
+
+    def test_to_json_creates_config(self):
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(),
+            "myvm",
+            "mycontainermanifest",
+            "n1-standard-1",
+        )
+
+        machine_config_json = manifest.to_dict()
 
 
 class TestJob:
