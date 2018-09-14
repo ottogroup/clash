@@ -19,7 +19,7 @@ function task_format {
 function task_test {
   cd python
   pipenv run python setup.py develop
-  pipenv run pytest -s
+  pipenv run pytest "$@"
 }
 
 function task_clash {
@@ -33,7 +33,7 @@ cmd=$1
 shift || true
 case "$cmd" in
   lint) task_lint ;;
-  test) task_test ;;
+  test) task_test "$@" ;;
   clash) task_clash "$@" ;;
   format) task_format ;;
   *)     task_usage ;;
