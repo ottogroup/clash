@@ -3,8 +3,9 @@ import uuid
 import json
 
 import jinja2
-import googleapiclient.discovery
 import click
+import googleapiclient.discovery
+from google.cloud import pubsub
 
 
 class CloudSdk:
@@ -13,6 +14,12 @@ class CloudSdk:
 
     def get_compute_client(self):
         return googleapiclient.discovery.build("compute", "v1")
+
+    def get_publisher(self):
+        return pubsub.PublisherClient()
+
+    def get_subscriber(self):
+        return pubsub.SubscriberClient()
 
 
 class ContainerManifest:
@@ -82,29 +89,57 @@ class MachineConfig:
 class Job:
     def __init__(self, script, gcloud, job_config):
         self.script = script
-        self.name = "clash-job-{}".format(uuid.uuid1())
-        self.compute = gcloud.get_compute_client()
+        self.gcloud = gcloud
         self.job_config = job_config
+        self.name = "clash-job-{}".format(uuid.uuid1())
+
+    def run(self):
+        machine_config = self._create_machine_config()
+
+        client = self.gcloud.get_publisher()
+        topic_path = client.topic_path(self.job_config["project_id"], self.name)
+        client.create_topic(topic_path)
+
+        self.gcloud.get_compute_client().instances().insert(
+          project=self.job_config["project_id"],
+          zone=self.job_config["zone"],
+          body=machine_config,
+        ).execute()
 
     def _create_machine_config(self):
         container_manifest = ContainerManifest(self.name, self.script, self.job_config)
 
         return MachineConfig(
-            self.compute, self.name, container_manifest, self.job_config
+            self.gcloud.get_compute_client(), self.name, container_manifest, self.job_config
         ).to_dict()
 
-    def run(self, gcloud=CloudSdk()):
-        machine_config = self._create_machine_config()
+    def wait(self):
+        publisher = self.gcloud.get_publisher()
+        subscriber = self.gcloud.get_subscriber()
+        topic_path = subscriber.topic_path(self.job_config["project_id"], self.name)
+        if topic_path not in publisher.list_topics(self.job_config):
+            return False
 
-        operation = (
-            self.compute.instances()
-            .insert(
-                project=self.job_config["project_id"],
-                zone=self.job_config["zone"],
-                body=machine_config,
-            )
-            .execute()
-        )
+        subscription_path = subscriber.subscription_path(self.job_config["project_id"], self.name)
+        subscriber.create_subscription(subscription_path, topic_path)
+
+        try:
+            done = False
+            while not done:
+                response = subscriber.pull(
+                    subscription_path, max_messages=1, return_immediately=False
+                )
+                if len(response.received_messages) > 0:
+                    done = True
+
+            ack_id = response.received_messages[0].ack_id
+            subscriber.acknowledge(subscription_path, ack_id)
+        except Exception as ex:
+            print(ex)
+        finally:
+            subscriber.delete_subscription(subscription_path)
+
+        return True
 
 
 def create_job(script, gcloud=CloudSdk()):

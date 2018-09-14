@@ -11,6 +11,7 @@ google-api-python-client = "*"
 pyyaml = "*"
 docker = "*"
 click = "*"
+google-cloud-pubsub = "*"
 
 [dev-packages]
 

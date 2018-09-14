@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
+set -e
+
 function __trap_clean_up {
+  gcloud pubsub topics delete {{ vm_name }} --quiet
   gcloud compute instances delete {{ vm_name }} --quiet --zone {{ zone }}
 }
 
@@ -8,4 +11,13 @@ trap __trap_clean_up EXIT
 
 echo "$SCRIPT" > script.sh
 chmod +x script.sh
+set +e
 ./script.sh
+success=$?
+set -e
+
+if [ $success -ne 0 ]; then
+  gcloud pubsub topics publish {{ vm_name }} --message="ok"
+else
+  gcloud pubsub topics publish {{ vm_name }} --message="error"
+fi
