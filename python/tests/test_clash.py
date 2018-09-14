@@ -20,15 +20,13 @@ TEST_JOB_CONFIG = {
 
 
 class InstanceStub:
-    def __init__(self, project, zone, body):
+    def __init__(self, gcloud, project, zone, body):
+        self.gcloud = gcloud
         self.project = project
         self.zone = zone
         self.body = body
-        self.running = False
 
     def execute(self):
-        self.running = True
-
         manifest = yaml.load(self.body["metadata"]["items"][0]["value"])
         runner = manifest["spec"]["containers"][0]["env"][0]["value"]
         script = manifest["spec"]["containers"][0]["env"][1]["value"]
@@ -36,9 +34,25 @@ class InstanceStub:
         command = manifest["spec"]["containers"][0]["args"]
 
         client = docker.from_env()
-        self.out = client.containers.run(
-            image, command, environment={"SCRIPT": script, "CLASH_RUNNER": runner}, stderr=True
+        self.process = client.containers.run(
+            image,
+            command,
+            environment={"SCRIPT": script, "CLASH_RUNNER": runner},
+            stderr=True,
+            detach=True,
         )
+
+        if not self.gcloud.detach:
+            self.process.wait()
+
+    def logs(self):
+        if not self.process:
+            return ""
+        return self.process.logs()
+
+    def remove(self):
+        if self.process:
+            self.process.remove(force=True)
 
 
 class CloudSdkStub:
@@ -49,13 +63,21 @@ class CloudSdkStub:
         }
 
         self.instances = []
+        self.detach = False
 
         def insert(project, zone, body):
-            instance = InstanceStub(project, zone, body)
+            instance = InstanceStub(self, project, zone, body)
             self.instances.append(instance)
             return instance
 
         self.compute.instances.return_value.insert.side_effect = insert
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        for instance in self.instances:
+            instance.remove()
 
     def get_compute_client(self):
         return self.compute
@@ -84,9 +106,7 @@ class TestContainerManifest:
         rendered = manifest.to_yaml()
 
         loaded_manifest = yaml.load(rendered)
-        assert (
-            loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "\na\nb\n"
-        )
+        assert loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "\na\nb\n"
 
 
 class TestMachineConfig:
@@ -135,57 +155,70 @@ class TestMachineConfig:
         assert machine_config[
             "machineType"
         ] == "https://www.googleapis.com/compute/beta/projects/{}/zones/{}/machineTypes/{}".format(
-            TEST_JOB_CONFIG["project_id"], TEST_JOB_CONFIG["zone"], TEST_JOB_CONFIG["machine_type"]
+            TEST_JOB_CONFIG["project_id"],
+            TEST_JOB_CONFIG["zone"],
+            TEST_JOB_CONFIG["machine_type"],
         )
 
 
 class TestJob:
-    def setup(self):
-        self.gcloud = CloudSdkStub()
-
     @patch("uuid.uuid1")
     def test_creates_job(self, mock_uuid_call):
-        mock_uuid_call.return_value = 1234
+        with CloudSdkStub() as gcloud:
+            mock_uuid_call.return_value = 1234
 
-        job = clash.create_job("", gcloud=self.gcloud)
+            job = clash.create_job("", gcloud=gcloud)
 
-        assert "clash-job-1234" == job.name
+            assert "clash-job-1234" == job.name
 
     @patch("uuid.uuid1")
-    def test_running_a_job_creates_a_running_instance(self, mock_uuid_call):
-        mock_uuid_call.return_value = 1234
-        job = clash.create_job("", gcloud=self.gcloud)
+    def test_running_a_job_runs_an_instance(self, mock_uuid_call):
+        with CloudSdkStub() as gcloud:
+            mock_uuid_call.return_value = 1234
+            job = clash.create_job("", gcloud=gcloud)
 
-        job.run()
+            job.run()
 
-        assert len(self.gcloud.instances) == 1
-        assert self.gcloud.instances[0].body["name"] == "clash-job-1234"
-        assert self.gcloud.instances[0].running
+            assert len(gcloud.instances) == 1
+            assert gcloud.instances[0].body["name"] == "clash-job-1234"
 
     def test_job_actually_runs_script(self):
-        job = clash.create_job("echo hello", gcloud=self.gcloud)
+        with CloudSdkStub() as gcloud:
+            job = clash.create_job("echo hello", gcloud=gcloud)
 
-        job.run()
+            job.run()
 
-        assert b"hello\n" in self.gcloud.instances[0].out
+            assert b"hello\n" in gcloud.instances[0].logs()
 
     def test_job_shutdowns_machine_eventually(self):
-        job = clash.create_job("echo hello", gcloud=self.gcloud)
+        with CloudSdkStub() as gcloud:
+            job = clash.create_job("echo hello", gcloud=gcloud)
 
-        job.run()
+            job.run()
 
-        assert b"gcloud.compute.instances.delete" in self.gcloud.instances[0].out
+            assert b"gcloud.compute.instances.delete" in gcloud.instances[0].logs()
 
     def test_job_runs_multiline_script(self):
-        script = """
-        echo 'hello'
-        the_world_is_flat=true
-        if [ "$the_world_is_flat" = true ] ; then
-            echo 'world'
-        fi
-        """
-        job = clash.create_job(script, gcloud=self.gcloud)
+        with CloudSdkStub() as gcloud:
+            script = """
+            echo 'hello'
+            the_world_is_flat=true
+            if [ "$the_world_is_flat" = true ] ; then
+                echo 'world'
+            fi
+            """
+            job = clash.create_job(script, gcloud=gcloud)
 
-        job.run()
+            job.run()
 
-        assert b"hello\nworld\n" in self.gcloud.instances[0].out
+            assert b"hello\nworld\n" in gcloud.instances[0].logs()
+
+    def test_wait_for_job(self):
+        with CloudSdkStub() as gcloud:
+            gcloud.detach = True  # Let us assume that the job runs asynchronously
+            job = clash.create_job("sleep 5; echo hello", gcloud=gcloud)
+            job.run()
+
+            job.wait()
+
+            assert b"hello\n" in gcloud.instances[0].logs()
