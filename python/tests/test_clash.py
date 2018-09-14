@@ -54,13 +54,21 @@ class InstanceStub:
         if self.process:
             self.process.remove(force=True)
 
-
-class CloudSdkStub:
+class CloudSdkIntegrationStub:
     def __init__(self):
         self.compute = MagicMock()
-        self.compute.images.return_value.getFromFamily.return_value.execute.return_value = {
-            "selfLink": "a_source_image"
-        }
+
+        self.topics = []
+
+        self.publisher = MagicMock()
+        self.publisher.list_topics.return_value = self.topics
+        self.publisher.topic_path.side_effect = lambda project, name: "{}/{}".format(project, name)
+        self.publisher.create_topic.side_effect = lambda topic: self.topics.append(topic)
+
+        self.subscriber = MagicMock()
+        self.subscriber.pull.return_value.received_messages = []
+        self.subscriber.topic_path.side_effect = lambda project, name: "{}/{}".format(project, name)
+        self.subscriber.subscription_path.side_effect = lambda project, name: "{}/{}".format(project, name)
 
         self.instances = []
         self.detach = False
@@ -82,6 +90,34 @@ class CloudSdkStub:
     def get_compute_client(self):
         return self.compute
 
+    def get_publisher(self):
+        return self.publisher
+
+    def get_subscriber(self):
+        return self.subscriber
+
+class CloudSdkStub:
+    def __init__(self):
+        self.compute = MagicMock()
+
+        self.publisher = MagicMock()
+        self.topics = []
+        self.publisher.list_topics.return_value = self.topics
+        self.publisher.topic_path.side_effect = lambda project, name: "{}/{}".format(project, name)
+        self.publisher.create_topic.side_effect = lambda topic: self.topics.append(topic)
+
+        self.subscriber = MagicMock()
+        self.subscriber.topic_path.side_effect = lambda project, name: "{}/{}".format(project, name)
+        self.subscriber.subscription_path.side_effect = lambda project, name: "{}/{}".format(project, name)
+
+    def get_compute_client(self):
+        return self.compute
+
+    def get_publisher(self):
+        return self.publisher
+
+    def get_subscriber(self):
+        return self.subscriber
 
 class TestContainerManifest:
     def test_manifest_contains_expected_values(self):
@@ -160,30 +196,9 @@ class TestMachineConfig:
             TEST_JOB_CONFIG["machine_type"],
         )
 
-
-class TestJob:
-    @patch("uuid.uuid1")
-    def test_creates_job(self, mock_uuid_call):
-        with CloudSdkStub() as gcloud:
-            mock_uuid_call.return_value = 1234
-
-            job = clash.create_job("", gcloud=gcloud)
-
-            assert "clash-job-1234" == job.name
-
-    @patch("uuid.uuid1")
-    def test_running_a_job_runs_an_instance(self, mock_uuid_call):
-        with CloudSdkStub() as gcloud:
-            mock_uuid_call.return_value = 1234
-            job = clash.create_job("", gcloud=gcloud)
-
-            job.run()
-
-            assert len(gcloud.instances) == 1
-            assert gcloud.instances[0].body["name"] == "clash-job-1234"
-
+class TestJobIntegration:
     def test_job_actually_runs_script(self):
-        with CloudSdkStub() as gcloud:
+        with CloudSdkIntegrationStub() as gcloud:
             job = clash.create_job("echo hello", gcloud=gcloud)
 
             job.run()
@@ -191,15 +206,35 @@ class TestJob:
             assert b"hello\n" in gcloud.instances[0].logs()
 
     def test_job_shutdowns_machine_eventually(self):
-        with CloudSdkStub() as gcloud:
+        with CloudSdkIntegrationStub() as gcloud:
             job = clash.create_job("echo hello", gcloud=gcloud)
 
             job.run()
 
             assert b"gcloud.compute.instances.delete" in gcloud.instances[0].logs()
 
+    def test_job_sends_pubpub_message_on_success(self):
+        with cloudsdkintegrationstub() as gcloud:
+            gcloud.detach = true # run job asynchronously as a normal job would do
+            job = clash.create_job("exit 0", gcloud=gcloud)
+
+            job.run()
+
+            assert b"gcloud.pubsub.topics.publish" in gcloud.instances[0].logs()
+            assert b"message='ok'" in gcloud.instances[0].logs()
+
+    def test_job_sends_pubpub_message_on_failure(self):
+        with cloudsdkintegrationstub() as gcloud:
+            gcloud.detach = true # run job asynchronously as a normal job would do
+            job = clash.create_job("exit 1", gcloud=gcloud)
+
+            job.run()
+
+            assert b"gcloud.pubsub.topics.publish" in gcloud.instances[0].logs()
+            assert b"message='error'" in gcloud.instances[0].logs()
+
     def test_job_runs_multiline_script(self):
-        with CloudSdkStub() as gcloud:
+        with CloudSdkIntegrationStub() as gcloud:
             script = """
             echo 'hello'
             the_world_is_flat=true
@@ -213,12 +248,113 @@ class TestJob:
 
             assert b"hello\nworld\n" in gcloud.instances[0].logs()
 
-    def test_wait_for_job(self):
-        with CloudSdkStub() as gcloud:
-            gcloud.detach = True  # Let us assume that the job runs asynchronously
-            job = clash.create_job("sleep 5; echo hello", gcloud=gcloud)
-            job.run()
+class TestJob:
+    def setup(self):
+        self.gcloud = CloudSdkStub()
 
-            job.wait()
+    @patch("uuid.uuid1")
+    def test_creates_job(self, mock_uuid_call):
+        mock_uuid_call.return_value = 1234
 
-            assert b"hello\n" in gcloud.instances[0].logs()
+        job = clash.create_job("", gcloud=self.gcloud)
+
+        assert "clash-job-1234" == job.name
+
+    def test_running_a_job_runs_an_instance(self):
+        job = clash.create_job("", gcloud=self.gcloud)
+
+        job.run()
+
+        self.gcloud.get_compute_client().instances.return_value.insert.return_value.execute.assert_called()
+
+    def test_running_a_job_creates_a_topic_path(self):
+        job = clash.create_job("", gcloud=self.gcloud)
+
+        job.run()
+
+        self.gcloud.get_publisher().topic_path.assert_called_with(TEST_JOB_CONFIG["project_id"], job.name)
+
+    def test_running_a_job_creates_a_pubsub_topic(self):
+        job = clash.create_job("", gcloud=self.gcloud)
+        self.gcloud.get_publisher().topic_path.side_effect = lambda x,y: "mytopic"
+
+        job.run()
+
+        self.gcloud.get_publisher().create_topic.assert_called_with("mytopic")
+
+    def test_waiting_fails_if_there_is_not_a_running_job(self):
+        job = clash.create_job("", gcloud=self.gcloud)
+
+        result = job.wait()
+
+        assert not result
+
+    def test_waiting_succeeds_if_there_is_a_running_job_and_a_message(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        assert result
+
+    def test_waiting_for_a_job_creates_a_pubsub_subscription(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
+        self.gcloud.get_publisher().topic_path.side_effect = lambda x,y: "mytopic"
+        self.gcloud.get_subscriber().topic_path.side_effect = lambda x,y: "mytopic"
+        self.gcloud.get_subscriber().subscription_path.side_effect = lambda x,y: "mysubscription"
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().create_subscription.assert_called_with("mysubscription", "mytopic")
+
+    def test_waiting_pulls_message(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock(ack_id=42)]
+        self.gcloud.get_subscriber().subscription_path.side_effect = lambda x,y: "mysubscription"
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().pull.assert_called_with("mysubscription", max_messages=1, return_immediately=False)
+
+    def test_waiting_acknowledges_messages(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock(ack_id=42)]
+        self.gcloud.get_subscriber().subscription_path.side_effect = lambda x,y: "mysubscription"
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().acknowledge.assert_called_with("mysubscription", 42)
+
+    def test_waiting_deletes_subscription(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock(ack_id=42)]
+        self.gcloud.get_subscriber().subscription_path.side_effect = lambda x,y: "mysubscription"
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().delete_subscription.assert_called_with("mysubscription")
+
+    def test_waiting_deletes_when_pulling_fails(self):
+        self.gcloud.get_subscriber().pull.side_effect = ValueError()
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().delete_subscription.assert_called()
+
+    def test_waiting_deletes_when_ack_fails(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock(ack_id=42)]
+        self.gcloud.get_subscriber().acknowledge.side_effect = ValueError()
+        job = clash.create_job("", gcloud=self.gcloud)
+        job.run()
+
+        result = job.wait()
+
+        self.gcloud.get_subscriber().delete_subscription.assert_called()
