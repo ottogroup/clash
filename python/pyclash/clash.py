@@ -127,15 +127,19 @@ def create_job(script, gcloud=CloudSdk()):
     }
     return Job(script, gcloud, DEFAULT_JOB_CONFIG)
 
+
 @click.group()
 def cli():
     pass
 
-@click.argument('raw_script')
+
+@click.argument("raw_script")
 @cli.command()
 def run(raw_script):
     job = create_job(raw_script)
     job.run()
+    print(job.name)
+
 
 if __name__ == "__main__":
     main()
