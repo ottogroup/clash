@@ -1,4 +1,5 @@
 import argparse
+import logging
 import uuid
 import json
 
@@ -7,6 +8,26 @@ import click
 import googleapiclient.discovery
 from google.cloud import pubsub
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+DEFAULT_JOB_CONFIG = {
+    "project_id": "yourproject-foobar",
+    "image": "google/cloud-sdk",
+    "zone": "europe-west1-b",
+    "region": "europe-west1",
+    "subnetwork": "default-europe-west1",
+    "machine_type": "n1-standard-1",
+    "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
+    "scopes": [
+        "https://www.googleapis.com/auth/bigquery",
+        "https://www.googleapis.com/auth/compute",
+        "https://www.googleapis.com/auth/devstorage.read_write",
+        "https://www.googleapis.com/auth/logging.write",
+        "https://www.googleapis.com/auth/monitoring",
+        "https://www.googleapis.com/auth/pubsub",
+    ],
+}
 
 class CloudSdk:
     def __init__(self):
@@ -87,14 +108,17 @@ class MachineConfig:
 
 
 class Job:
-    def __init__(self, script, gcloud, job_config):
-        self.script = script
+    def __init__(self, name=None, gcloud=CloudSdk(), job_config=DEFAULT_JOB_CONFIG):
         self.gcloud = gcloud
         self.job_config = job_config
-        self.name = "clash-job-{}".format(uuid.uuid1())
 
-    def run(self):
-        machine_config = self._create_machine_config()
+        if not name:
+            self.name = "clash-job-{}".format(uuid.uuid1())
+        else:
+            self.name = name
+
+    def run(self, script):
+        machine_config = self._create_machine_config(script)
 
         client = self.gcloud.get_publisher()
         topic_path = client.topic_path(self.job_config["project_id"], self.name)
@@ -106,8 +130,8 @@ class Job:
           body=machine_config,
         ).execute()
 
-    def _create_machine_config(self):
-        container_manifest = ContainerManifest(self.name, self.script, self.job_config)
+    def _create_machine_config(self, script):
+        container_manifest = ContainerManifest(self.name, script, self.job_config)
 
         return MachineConfig(
             self.gcloud.get_compute_client(), self.name, container_manifest, self.job_config
@@ -118,7 +142,7 @@ class Job:
         subscriber = self.gcloud.get_subscriber()
         topic_path = subscriber.topic_path(self.job_config["project_id"], self.name)
         if topic_path not in publisher.list_topics(self.job_config):
-            return False
+            raise ValueError("Could not find job {}".format(self.name))
 
         subscription_path = subscriber.subscription_path(self.job_config["project_id"], self.name)
         subscriber.create_subscription(subscription_path, topic_path)
@@ -135,45 +159,31 @@ class Job:
             ack_id = response.received_messages[0].ack_id
             subscriber.acknowledge(subscription_path, ack_id)
         except Exception as ex:
-            print(ex)
+            raise ex
         finally:
             subscriber.delete_subscription(subscription_path)
-
-        return True
-
-
-def create_job(script, gcloud=CloudSdk()):
-    DEFAULT_JOB_CONFIG = {
-        "project_id": "yourproject-foobar",
-        "image": "google/cloud-sdk",
-        "zone": "europe-west1-b",
-        "region": "europe-west1",
-        "subnetwork": "default-europe-west1",
-        "machine_type": "n1-standard-1",
-        "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
-        "scopes": [
-            "https://www.googleapis.com/auth/bigquery",
-            "https://www.googleapis.com/auth/compute",
-            "https://www.googleapis.com/auth/devstorage.read_write",
-            "https://www.googleapis.com/auth/logging.write",
-            "https://www.googleapis.com/auth/monitoring",
-            "https://www.googleapis.com/auth/pubsub",
-        ],
-    }
-    return Job(script, gcloud, DEFAULT_JOB_CONFIG)
 
 
 @click.group()
 def cli():
     pass
 
-
 @click.argument("raw_script")
 @cli.command()
 def run(raw_script):
-    job = create_job(raw_script)
+    job = Job()
     job.run()
     print(job.name)
+
+@click.argument("job_name")
+@cli.command()
+def wait(job_name):
+    job = Job(job_name)
+    try:
+        job.wait()
+    except Exception as ex:
+        logger.error(ex)
+
 
 
 if __name__ == "__main__":
