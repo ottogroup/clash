@@ -6,7 +6,8 @@ import json
 import jinja2
 import click
 import googleapiclient.discovery
-from google.cloud import pubsub
+from google.cloud import pubsub_v1 as pubsub
+from google.cloud import logging as glogging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,18 +30,30 @@ DEFAULT_JOB_CONFIG = {
     ],
 }
 
+class MemoryCache():
+    _CACHE = {}
+
+    def get(self, url):
+        return MemoryCache._CACHE.get(url)
+
+    def set(self, url, content):
+        MemoryCache._CACHE[url] = content
+
 class CloudSdk:
     def __init__(self):
         pass
 
     def get_compute_client(self):
-        return googleapiclient.discovery.build("compute", "v1")
+        return googleapiclient.discovery.build("compute", "v1", cache=MemoryCache())
 
     def get_publisher(self):
         return pubsub.PublisherClient()
 
     def get_subscriber(self):
         return pubsub.SubscriberClient()
+
+    def get_logging(self):
+        return glogging.Client()
 
 
 class ContainerManifest:
@@ -106,7 +119,6 @@ class MachineConfig:
 
         return rendered
 
-
 class Job:
     def __init__(self, name=None, gcloud=CloudSdk(), job_config=DEFAULT_JOB_CONFIG):
         self.gcloud = gcloud
@@ -125,65 +137,91 @@ class Job:
         client.create_topic(topic_path)
 
         self.gcloud.get_compute_client().instances().insert(
-          project=self.job_config["project_id"],
-          zone=self.job_config["zone"],
-          body=machine_config,
+            project=self.job_config["project_id"],
+            zone=self.job_config["zone"],
+            body=machine_config,
         ).execute()
 
     def _create_machine_config(self, script):
         container_manifest = ContainerManifest(self.name, script, self.job_config)
 
         return MachineConfig(
-            self.gcloud.get_compute_client(), self.name, container_manifest, self.job_config
+            self.gcloud.get_compute_client(),
+            self.name,
+            container_manifest,
+            self.job_config,
         ).to_dict()
 
-    def wait(self):
+    def wait(self, print_logs=False):
+        project_id = self.job_config["project_id"]
         publisher = self.gcloud.get_publisher()
         subscriber = self.gcloud.get_subscriber()
-        topic_path = subscriber.topic_path(self.job_config["project_id"], self.name)
-        if topic_path not in publisher.list_topics(self.job_config):
+        topic_path = subscriber.topic_path(project_id, self.name)
+        topics = [path.name for path in publisher.list_topics(f"projects/{project_id}")]
+
+        if topic_path not in topics:
             raise ValueError("Could not find job {}".format(self.name))
 
-        subscription_path = subscriber.subscription_path(self.job_config["project_id"], self.name)
+        subscription_path = subscriber.subscription_path(
+            self.job_config["project_id"], self.name
+        )
         subscriber.create_subscription(subscription_path, topic_path)
 
         try:
             done = False
             while not done:
                 response = subscriber.pull(
-                    subscription_path, max_messages=1, return_immediately=False
+                    subscription_path, max_messages=1, return_immediately=False, timeout=30
                 )
+
+                if print_logs:
+                    self._print_logs()
+
                 if len(response.received_messages) > 0:
                     done = True
 
             ack_id = response.received_messages[0].ack_id
-            subscriber.acknowledge(subscription_path, ack_id)
+            subscriber.acknowledge(subscription_path, [ack_id])
         except Exception as ex:
             raise ex
         finally:
             subscriber.delete_subscription(subscription_path)
+
+    def _print_logs(self):
+        project_id = self.job_config["project_id"]
+        FILTER = f"""
+            resource.type="global"
+            logName="projects/{project_id}/logs/gcplogs-docker-driver"
+            jsonPayload.instance.name="{self.name}"
+            jsonPayload.container.name="/{self.name}"
+        """
+        for entry in self.gcloud.get_logging().list_entries(filter_=FILTER):
+            print(entry.payload["data"])
+
 
 
 @click.group()
 def cli():
     pass
 
+
 @click.argument("raw_script")
 @cli.command()
 def run(raw_script):
     job = Job()
-    job.run()
+    job.run(raw_script)
     print(job.name)
 
+
 @click.argument("job_name")
+@click.option('--show-logs', is_flag=True)
 @cli.command()
-def wait(job_name):
+def wait(job_name, show_logs):
     job = Job(job_name)
     try:
-        job.wait()
+        job.wait(print_logs=show_logs)
     except Exception as ex:
         logger.error(ex)
-
 
 
 if __name__ == "__main__":

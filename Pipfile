@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-black = "*"
 pytest = "*"
 "jinja2" = "*"
 google-api-python-client = "*"
@@ -12,6 +11,9 @@ pyyaml = "*"
 docker = "*"
 click = "*"
 google-cloud-pubsub = "*"
+"grpc-google-iam-v1" = "*"
+"oauth2client" = "*"
+google-cloud-logging = "*"
 
 [dev-packages]
 
