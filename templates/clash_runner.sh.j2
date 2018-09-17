@@ -16,8 +16,4 @@ set +e
 success=$?
 set -e
 
-if [ $success -ne 0 ]; then
-  gcloud pubsub topics publish {{ vm_name }} --message="ok"
-else
-  gcloud pubsub topics publish {{ vm_name }} --message="error"
-fi
+gcloud pubsub topics publish {{ vm_name }} --message="{'status': $success}"
