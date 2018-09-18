@@ -3,6 +3,7 @@ import logging
 import uuid
 import json
 import datetime
+import time
 
 import jinja2
 import click
@@ -57,7 +58,7 @@ class CloudSdk:
         return glogging.Client()
 
 
-class ContainerManifest:
+class CloutInitConfig:
     def __init__(self, vm_name, script, job_config):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(searchpath="../templates")
@@ -66,12 +67,12 @@ class ContainerManifest:
         self.script = script
         self.job_config = job_config
 
-    def to_yaml(self):
+    def render(self):
         clash_runner_script = self.template_env.get_template(
             "clash_runner.sh.j2"
         ).render(vm_name=self.vm_name, zone=self.job_config["zone"])
 
-        return self.template_env.get_template("container_manifest.yaml.j2").render(
+        return self.template_env.get_template("cloud-init.yaml.j2").render(
             vm_name=self.vm_name,
             image=self.job_config["image"],
             clash_runner_script=clash_runner_script,
@@ -80,13 +81,13 @@ class ContainerManifest:
 
 
 class MachineConfig:
-    def __init__(self, compute, vm_name, container_manifest, job_config):
+    def __init__(self, compute, vm_name, cloud_init, job_config):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(searchpath="../templates")
         )
         self.compute = compute
         self.vm_name = vm_name
-        self.container_manifest = container_manifest
+        self.cloud_init = cloud_init
         self.job_config = job_config
 
     def to_dict(self):
@@ -116,11 +117,14 @@ class MachineConfig:
             )
         )
 
-        rendered["metadata"]["items"][0]["value"] = self.container_manifest.to_yaml()
+        rendered["metadata"]["items"][0]["value"] = self.cloud_init.render()
 
         return rendered
 
 class Job:
+
+    STACKDRIVER_DELAY_SECONDS = 5
+
     def __init__(self, name=None, gcloud=CloudSdk(), job_config=DEFAULT_JOB_CONFIG):
         self.gcloud = gcloud
         self.job_config = job_config
@@ -144,12 +148,12 @@ class Job:
         ).execute()
 
     def _create_machine_config(self, script):
-        container_manifest = ContainerManifest(self.name, script, self.job_config)
+        cloud_init = CloutInitConfig(self.name, script, self.job_config)
 
         return MachineConfig(
             self.gcloud.get_compute_client(),
             self.name,
-            container_manifest,
+            cloud_init,
             self.job_config,
         ).to_dict()
 
@@ -190,19 +194,18 @@ class Job:
 
     def _print_logs(self):
         project_id = self.job_config["project_id"]
-        local_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=20)
+        local_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
         iso_time = local_time.astimezone().isoformat()
         FILTER = f"""
             resource.type="global"
             logName="projects/{project_id}/logs/gcplogs-docker-driver"
             jsonPayload.instance.name="{self.name}"
-            jsonPayload.container.name="/{self.name}"
             timestamp >= "{iso_time}"
         """
+
+        time.sleep(Job.STACKDRIVER_DELAY_SECONDS)
         for entry in self.gcloud.get_logging().list_entries(filter_=FILTER):
             print(entry.payload["data"])
-
-
 
 @click.group()
 def cli():
