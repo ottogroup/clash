@@ -2,6 +2,7 @@ import argparse
 import logging
 import uuid
 import json
+import datetime
 
 import jinja2
 import click
@@ -189,11 +190,14 @@ class Job:
 
     def _print_logs(self):
         project_id = self.job_config["project_id"]
+        local_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=20)
+        iso_time = local_time.astimezone().isoformat()
         FILTER = f"""
             resource.type="global"
             logName="projects/{project_id}/logs/gcplogs-docker-driver"
             jsonPayload.instance.name="{self.name}"
             jsonPayload.container.name="/{self.name}"
+            timestamp >= "{iso_time}"
         """
         for entry in self.gcloud.get_logging().list_entries(filter_=FILTER):
             print(entry.payload["data"])
