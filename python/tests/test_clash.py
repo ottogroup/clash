@@ -143,34 +143,6 @@ class CloudSdkStub:
         return self.subscriber
 
 
-class TestContainerManifest:
-    def test_manifest_contains_expected_values(self):
-        manifest = clash.ContainerManifest("myvm", "myscript", TEST_JOB_CONFIG)
-
-        rendered = manifest.to_yaml()
-
-        loaded_manifest = yaml.load(rendered)
-        assert loaded_manifest["spec"]["containers"][0]["name"] == "myvm"
-        assert (
-            loaded_manifest["spec"]["containers"][0]["image"] == "test-cloudsdk:latest"
-        )
-        assert (
-            loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "myscript\n"
-        )
-
-    def test_manifest_can_contain_multiline_script(self):
-        script = """
-        a
-        b
-        """
-        manifest = clash.ContainerManifest("myvm", script, TEST_JOB_CONFIG)
-
-        rendered = manifest.to_yaml()
-
-        loaded_manifest = yaml.load(rendered)
-        assert loaded_manifest["spec"]["containers"][0]["env"][1]["value"] == "\na\nb\n"
-
-
 class TestMachineConfig:
     def setup(self):
         self.gcloud = CloudSdkStub()

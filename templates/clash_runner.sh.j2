@@ -9,10 +9,8 @@ function __trap_clean_up {
 
 trap __trap_clean_up EXIT
 
-echo "$SCRIPT" > script.sh
-chmod +x script.sh
 set +e
-./script.sh
+bash /var/script.sh
 success=$?
 set -e
 
