@@ -189,6 +189,11 @@ class Job:
             body=machine_config,
         ).execute()
 
+    def run_file(self, script_file):
+        with open(script_file, 'r') as f:
+            script = f.read()
+        self.run(script)
+
     def _create_machine_config(self, script):
         cloud_init = CloudInitConfig(self.name, script, self.job_config)
 
@@ -293,17 +298,21 @@ def init(config):
     ensure_config(config)
     print("Clash is now initialized!")
 
-@click.argument("raw_script")
+@click.argument("script")
 @click.option("--detach", is_flag=True)
+@click.option("--from-file", is_flag=True)
 @click.option("--config", default="clash.yml")
 @cli.command()
-def run(raw_script, detach, config):
+def run(script, detach, from_file, config):
     logging.basicConfig(level=logging.ERROR)
     try:
         job_config = load_config(config)
         job = Job(job_config)
         with Halo(text="Creating job", spinner="dots") as spinner:
-            job.run(raw_script)
+            if from_file:
+                job.run_file(script)
+            else:
+                job.run(script)
 
         if not detach:
             attach_to(job)

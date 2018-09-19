@@ -297,6 +297,14 @@ class TestJobIntegration:
 
             assert b"hello\nworld\n" in gcloud.instances[0].logs()
 
+    def test_job_runs_script_from_file(self):
+        with CloudSdkIntegrationStub() as gcloud:
+            job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+
+            job.run_file('tests/script.sh')
+
+            assert b"hello\nworld\n" in gcloud.instances[0].logs()
+
 
 class TestJob:
     def setup(self):
