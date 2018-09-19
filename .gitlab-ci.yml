@@ -1,7 +1,9 @@
-image: eu.gcr.io/yourproject-foobar/ci-build-image
+image: python:3.7-alpine3.8
 stages:
   - lint
   - test
+before_script:
+  - pip install pipenv
 
 # Any branch
 lint:
