@@ -121,9 +121,40 @@ class MachineConfig:
 
         return rendered
 
-class Job:
+class StackdriverLogsReader:
 
     STACKDRIVER_DELAY_SECONDS = 5
+
+    def __init__(self, logging_client):
+        self.logging_client = logging_client
+
+    def wait_for_logs_arrival(self):
+        time.sleep(StackdriverLogsReader.STACKDRIVER_DELAY_SECONDS)
+
+    def _now(self):
+        return datetime.datetime.now(datetime.timezone.utc)
+
+    def _delta(self, delta_time):
+        return datetime.timedelta(seconds=delta_time)
+
+    def _to_iso_format(self, local_time):
+        return local_time.astimezone().isoformat()
+
+    def read_logs(self, job, from_seconds_ago):
+        project_id = job.job_config["project_id"]
+        local_time = self._now() - self._delta(from_seconds_ago)
+        iso_time = self._to_iso_format(local_time)
+        FILTER = f"""
+            resource.type="global"
+            logName="projects/{project_id}/logs/gcplogs-docker-driver"
+            jsonPayload.instance.name="{job.name}"
+            timestamp >= "{iso_time}"
+        """
+        return [entry.payload["data"] for entry in self.logging_client.list_entries(filter_=FILTER)]
+
+class Job:
+
+    POLLING_INTERVAL_SECONDS = 30
 
     def __init__(self, name=None, gcloud=CloudSdk(), job_config=DEFAULT_JOB_CONFIG):
         self.gcloud = gcloud
@@ -157,15 +188,15 @@ class Job:
             self.job_config,
         ).to_dict()
 
-    def attach(self, print_logs=False):
+    def attach(self, logs_reader=None):
         subscriber = self.gcloud.get_subscriber()
         subscription_path = self._create_subscription(subscriber)
 
         try:
             while True:
                 message = self._pull_message(subscriber, subscription_path)
-                if print_logs:
-                    self._print_logs()
+                if logs_reader:
+                    self._print_logs(logs_reader)
                 if message:
                     break
         except Exception as ex:
@@ -175,7 +206,7 @@ class Job:
 
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(
-            subscription_path, max_messages=1, return_immediately=False, timeout=30
+            subscription_path, max_messages=1, return_immediately=False, timeout=Job.POLLING_INTERVAL_SECONDS
         )
 
         if len(response.received_messages) > 0:
@@ -202,20 +233,18 @@ class Job:
 
         return subscription_path
 
-    def _print_logs(self):
-        time.sleep(Job.STACKDRIVER_DELAY_SECONDS)
+    def _print_logs(self, logs_reader):
+        logs_reader.wait_for_logs_arrival()
+        logs = logs_reader.read_logs(self, Job.POLLING_INTERVAL_SECONDS)
+        for entry in logs:
+            print(entry)
 
-        project_id = self.job_config["project_id"]
-        local_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
-        iso_time = local_time.astimezone().isoformat()
-        FILTER = f"""
-            resource.type="global"
-            logName="projects/{project_id}/logs/gcplogs-docker-driver"
-            jsonPayload.instance.name="{self.name}"
-            timestamp >= "{iso_time}"
-        """
-        for entry in self.gcloud.get_logging().list_entries(filter_=FILTER):
-            print(entry.payload["data"])
+def attach_to(job):
+    try:
+        logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
+        job.attach(logs_reader)
+    except Exception as ex:
+        logger.error(ex)
 
 @click.group()
 def cli():
@@ -231,23 +260,15 @@ def run(raw_script, detach):
         job.run(raw_script)
 
     if not detach:
-        try:
-            job.attach(print_logs=True)
-        except Exception as ex:
-            logger.error(ex)
+        attach_to(job)
     else:
         print(job.name)
-
 
 @click.argument("job_name")
 @cli.command()
 def attach(job_name):
     job = Job(job_name)
-    try:
-        job.attach(print_logs=True)
-    except Exception as ex:
-        logger.error(ex)
-
+    attach_to(job)
 
 if __name__ == "__main__":
     main()
