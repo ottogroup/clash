@@ -4,6 +4,7 @@ import uuid
 import json
 import datetime
 import time
+from halo import Halo
 
 import jinja2
 import click
@@ -11,7 +12,6 @@ import googleapiclient.discovery
 from google.cloud import pubsub_v1 as pubsub
 from google.cloud import logging as glogging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEFAULT_JOB_CONFIG = {
@@ -193,6 +193,8 @@ class Job:
             subscriber.delete_subscription(subscription_path)
 
     def _print_logs(self):
+        time.sleep(Job.STACKDRIVER_DELAY_SECONDS)
+
         project_id = self.job_config["project_id"]
         local_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=30)
         iso_time = local_time.astimezone().isoformat()
@@ -202,8 +204,6 @@ class Job:
             jsonPayload.instance.name="{self.name}"
             timestamp >= "{iso_time}"
         """
-
-        time.sleep(Job.STACKDRIVER_DELAY_SECONDS)
         for entry in self.gcloud.get_logging().list_entries(filter_=FILTER):
             print(entry.payload["data"])
 
@@ -211,14 +211,23 @@ class Job:
 def cli():
     pass
 
-
 @click.argument("raw_script")
+@click.option('--show-logs', is_flag=True)
+@click.option('--wait', is_flag=True)
 @cli.command()
-def run(raw_script):
+def run(raw_script, wait, show_logs):
     job = Job()
-    job.run(raw_script)
+    logging.basicConfig(level=logging.ERROR)
+    with Halo(text='Creating job', spinner='dots'):
+        job.run(raw_script)
+
     print(job.name)
 
+    if wait:
+        try:
+            job.wait(print_logs=show_logs)
+        except Exception as ex:
+            logger.error(ex)
 
 @click.argument("job_name")
 @click.option('--show-logs', is_flag=True)
