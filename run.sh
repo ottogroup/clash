@@ -3,8 +3,12 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh lint | build | test | clash | format'
+  echo 'Usage: ./run.sh init | lint | build | test | clash | format'
   exit 1
+}
+
+function task_init {
+  pipenv install
 }
 
 function task_lint {
@@ -32,6 +36,7 @@ function task_clash {
 cmd=$1
 shift || true
 case "$cmd" in
+  init) task_init ;;
   lint) task_lint ;;
   test) task_test "$@" ;;
   clash) task_clash "$@" ;;
