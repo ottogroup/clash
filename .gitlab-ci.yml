@@ -4,6 +4,7 @@ stages:
   - test
 before_script:
   - pip install pipenv
+  - ./run.sh init
 
 # Any branch
 lint:
@@ -14,5 +15,4 @@ lint:
 test:
   stage: test
   script:
-    - ./run.sh init
     - ./run.sh test
