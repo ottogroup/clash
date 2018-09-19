@@ -3,6 +3,8 @@ from collections import namedtuple
 import pytest
 import yaml
 import docker
+import io
+from contextlib import redirect_stdout
 
 from pyclash import clash
 
@@ -112,6 +114,9 @@ class CloudSdkIntegrationStub:
     def get_subscriber(self):
         return self.subscriber
 
+    def get_logging(self):
+        return MagicMock()
+
 
 class CloudSdkStub:
     def __init__(self):
@@ -144,6 +149,41 @@ class CloudSdkStub:
     def get_subscriber(self):
         return self.subscriber
 
+    def get_logging(self):
+        return MagicMock()
+
+class TestStackdriverLogsReader:
+    def setup(self):
+        self.job = MagicMock()
+        self.logging_client = CloudSdkStub().get_logging()
+
+    def test_list_entries_with_correct_filter(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        self.job.name = "job-123"
+        self.job.job_config = TEST_JOB_CONFIG
+        logs_reader._now = MagicMock(return_value=100)
+        logs_reader._delta = MagicMock(side_effect=lambda x: x)
+        logs_reader._to_iso_format = MagicMock(side_effect=lambda x: 2 * x)
+        EXPECTED_FILTER = f"""
+            resource.type="global"
+            logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+            jsonPayload.instance.name="job-123"
+            timestamp >= "160"
+        """
+
+        logs_reader.read_logs(self.job, 20)
+
+        self.logging_client.list_entries.assert_called_with(filter_=EXPECTED_FILTER)
+
+    def test_return_logs(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        Entry = namedtuple("Entry", "payload")
+        self.logging_client.list_entries.return_value = [Entry(payload={ "data": "foo"}), Entry(payload={ "data": "bar"})]
+
+        logs = logs_reader.read_logs(self.job, 20)
+
+        assert ["foo", "bar"] == logs
+
 
 class TestMachineConfig:
     def setup(self):
@@ -162,21 +202,21 @@ class TestMachineConfig:
 
         assert machine_config["name"] == "myvm"
 
-    def test_config_contains_manifest(self):
-        manifest = clash.MachineConfig(
+    def test_config_contains_cloud_init_config(self):
+        config = clash.MachineConfig(
             self.gcloud.get_compute_client(),
             "_",
             clash.CloudInitConfig("myname", "_", TEST_JOB_CONFIG),
             TEST_JOB_CONFIG,
         )
 
-        machine_config = manifest.to_dict()
+        machine_config = config.to_dict()
 
         assert (
             machine_config["metadata"]["items"][0]["key"] == "user-data"
         )
-        manifest = yaml.load(machine_config["metadata"]["items"][0]["value"])
-        assert manifest["users"][0]["name"] == "clash"
+        cloud_init = yaml.load(machine_config["metadata"]["items"][0]["value"])
+        assert cloud_init["users"][0]["name"] == "clash"
 
     def test_config_contains_machine_type(self):
         manifest = clash.MachineConfig(
@@ -368,7 +408,7 @@ class TestJob:
             "mysubscription"
         )
 
-    def test_attaching_deletes_when_pulling_fails(self):
+    def test_attaching_deletes_subscription_when_pulling_fails(self):
         self.gcloud.get_subscriber().pull.side_effect = ValueError()
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
@@ -378,7 +418,7 @@ class TestJob:
 
         self.gcloud.get_subscriber().delete_subscription.assert_called()
 
-    def test_attaching_deletes_when_ack_fails(self):
+    def test_attaching_deletes_subscription_when_ack_fails(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
             MagicMock(ack_id=42)
         ]
@@ -390,3 +430,20 @@ class TestJob:
             job.attach()
 
         self.gcloud.get_subscriber().delete_subscription.assert_called()
+
+    def test_attaching_prints_logs(self):
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [
+            MagicMock(ack_id=42)
+        ]
+        logs_reader = MagicMock()
+        logs_reader.read_logs.return_value = ["foo", "bar"]
+        job = clash.Job(gcloud=self.gcloud)
+        job.run("")
+        string_io = io.StringIO()
+
+        with redirect_stdout(string_io):
+            job.attach(logs_reader)
+
+        out = string_io.getvalue()
+        assert "foo\n" in out
+        assert "bar\n" in out
