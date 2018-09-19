@@ -32,7 +32,8 @@ DEFAULT_JOB_CONFIG = {
     ],
 }
 
-class MemoryCache():
+
+class MemoryCache:
     _CACHE = {}
 
     def get(self, url):
@@ -40,6 +41,7 @@ class MemoryCache():
 
     def set(self, url, content):
         MemoryCache._CACHE[url] = content
+
 
 class CloudSdk:
     def __init__(self):
@@ -121,6 +123,7 @@ class MachineConfig:
 
         return rendered
 
+
 class StackdriverLogsReader:
 
     STACKDRIVER_DELAY_SECONDS = 5
@@ -150,7 +153,11 @@ class StackdriverLogsReader:
             jsonPayload.instance.name="{job.name}"
             timestamp >= "{iso_time}"
         """
-        return [entry.payload["data"] for entry in self.logging_client.list_entries(filter_=FILTER)]
+        return [
+            entry.payload["data"]
+            for entry in self.logging_client.list_entries(filter_=FILTER)
+        ]
+
 
 class Job:
 
@@ -182,10 +189,7 @@ class Job:
         cloud_init = CloudInitConfig(self.name, script, self.job_config)
 
         return MachineConfig(
-            self.gcloud.get_compute_client(),
-            self.name,
-            cloud_init,
-            self.job_config,
+            self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config
         ).to_dict()
 
     def attach(self, logs_reader=None):
@@ -206,7 +210,10 @@ class Job:
 
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(
-            subscription_path, max_messages=1, return_immediately=False, timeout=Job.POLLING_INTERVAL_SECONDS
+            subscription_path,
+            max_messages=1,
+            return_immediately=False,
+            timeout=Job.POLLING_INTERVAL_SECONDS,
         )
 
         if len(response.received_messages) > 0:
@@ -239,6 +246,7 @@ class Job:
         for entry in logs:
             print(entry)
 
+
 def attach_to(job):
     try:
         logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
@@ -246,17 +254,19 @@ def attach_to(job):
     except Exception as ex:
         logger.error(ex)
 
+
 @click.group()
 def cli():
     pass
 
+
 @click.argument("raw_script")
-@click.option('--detach', is_flag=True)
+@click.option("--detach", is_flag=True)
 @cli.command()
 def run(raw_script, detach):
     job = Job()
     logging.basicConfig(level=logging.ERROR)
-    with Halo(text='Creating job', spinner='dots') as spinner:
+    with Halo(text="Creating job", spinner="dots") as spinner:
         job.run(raw_script)
 
     if not detach:
@@ -264,11 +274,13 @@ def run(raw_script, detach):
     else:
         print(job.name)
 
+
 @click.argument("job_name")
 @cli.command()
 def attach(job_name):
     job = Job(job_name)
     attach_to(job)
+
 
 if __name__ == "__main__":
     main()

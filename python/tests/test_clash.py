@@ -35,7 +35,11 @@ class InstanceStub:
         runner = manifest["write_files"][0]["content"]
         script = manifest["write_files"][1]["content"]
         image = TEST_JOB_CONFIG["image"]
-        command = ["bash", "-c", "echo \"$SCRIPT\" > /var/script.sh && echo \"$CLASH_RUNNER\" > /tmp/clash-runner.sh && bash /tmp/clash-runner.sh && cat /tmp/gcloud.log"]
+        command = [
+            "bash",
+            "-c",
+            'echo "$SCRIPT" > /var/script.sh && echo "$CLASH_RUNNER" > /tmp/clash-runner.sh && bash /tmp/clash-runner.sh && cat /tmp/gcloud.log',
+        ]
 
         client = docker.from_env()
         self.process = client.containers.run(
@@ -58,7 +62,9 @@ class InstanceStub:
         if self.process:
             self.process.remove(force=True)
 
-Topic = namedtuple('Topic', 'name')
+
+Topic = namedtuple("Topic", "name")
+
 
 class CloudSdkIntegrationStub:
     def __init__(self):
@@ -152,6 +158,7 @@ class CloudSdkStub:
     def get_logging(self):
         return MagicMock()
 
+
 class TestStackdriverLogsReader:
     def setup(self):
         self.job = MagicMock()
@@ -178,7 +185,10 @@ class TestStackdriverLogsReader:
     def test_return_logs(self):
         logs_reader = clash.StackdriverLogsReader(self.logging_client)
         Entry = namedtuple("Entry", "payload")
-        self.logging_client.list_entries.return_value = [Entry(payload={ "data": "foo"}), Entry(payload={ "data": "bar"})]
+        self.logging_client.list_entries.return_value = [
+            Entry(payload={"data": "foo"}),
+            Entry(payload={"data": "bar"}),
+        ]
 
         logs = logs_reader.read_logs(self.job, 20)
 
@@ -192,10 +202,7 @@ class TestMachineConfig:
 
     def test_config_contains_vmname(self):
         manifest = clash.MachineConfig(
-            self.gcloud.get_compute_client(),
-            "myvm",
-            self.cloud_init,
-            TEST_JOB_CONFIG,
+            self.gcloud.get_compute_client(), "myvm", self.cloud_init, TEST_JOB_CONFIG
         )
 
         machine_config = manifest.to_dict()
@@ -212,18 +219,13 @@ class TestMachineConfig:
 
         machine_config = config.to_dict()
 
-        assert (
-            machine_config["metadata"]["items"][0]["key"] == "user-data"
-        )
+        assert machine_config["metadata"]["items"][0]["key"] == "user-data"
         cloud_init = yaml.load(machine_config["metadata"]["items"][0]["value"])
         assert cloud_init["users"][0]["name"] == "clash"
 
     def test_config_contains_machine_type(self):
         manifest = clash.MachineConfig(
-            self.gcloud.get_compute_client(),
-            "_",
-            self.cloud_init,
-            TEST_JOB_CONFIG,
+            self.gcloud.get_compute_client(), "_", self.cloud_init, TEST_JOB_CONFIG
         )
 
         machine_config = manifest.to_dict()

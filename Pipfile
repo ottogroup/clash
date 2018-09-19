@@ -15,6 +15,7 @@ google-cloud-pubsub = "*"
 "oauth2client" = "*"
 google-cloud-logging = "*"
 halo = "*"
+black = "*"
 
 [dev-packages]
 
