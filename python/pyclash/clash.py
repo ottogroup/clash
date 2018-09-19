@@ -37,6 +37,7 @@ DEFAULT_JOB_CONFIG = {
     ],
 }
 
+
 class MemoryCache:
     _CACHE = {}
 
@@ -190,7 +191,7 @@ class Job:
         ).execute()
 
     def run_file(self, script_file):
-        with open(script_file, 'r') as f:
+        with open(script_file, "r") as f:
             script = f.read()
         self.run(script)
 
@@ -266,40 +267,46 @@ def attach_to(job):
     except Exception as ex:
         logger.error(ex)
 
+
 def ensure_config(config_file):
     if not os.path.isfile(config_file):
         print(f"Creating basic configuration {config_file}...")
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             yaml.dump(DEFAULT_JOB_CONFIG, f, default_flow_style=False)
         input("Press enter to review the configuration file.")
-        EDITOR = os.environ.get('EDITOR','vim')
+        EDITOR = os.environ.get("EDITOR", "vim")
         call([EDITOR, config_file])
     else:
         print(f"Using configuration file {config_file}.")
 
+
 def from_env(value, key):
-  return os.getenv(key, value)
+    return os.getenv(key, value)
+
 
 def load_config(config_file):
     if not os.path.isfile(config_file):
-        raise ValueError("No configration file found. Please create one (e.g. by using clash init)")
+        raise ValueError(
+            "No configration file found. Please create one (e.g. by using clash init)"
+        )
 
-    template_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(searchpath=".")
-    )
-    template_env.filters['from_env'] = from_env
+    template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath="."))
+    template_env.filters["from_env"] = from_env
     rendered_config = template_env.get_template(config_file).render()
     return yaml.load(rendered_config)
+
 
 @click.group()
 def cli():
     pass
+
 
 @cli.command()
 @click.option("--config", default="clash.yml")
 def init(config):
     ensure_config(config)
     print("Clash is now initialized!")
+
 
 @click.argument("script")
 @click.option("--detach", is_flag=True)
@@ -325,6 +332,7 @@ def run(script, detach, from_file, config):
         logging.error(ex)
         sys.exit(1)
 
+
 @click.argument("job_name")
 @cli.command()
 def attach(job_name):
@@ -335,6 +343,7 @@ def attach(job_name):
     except Exception as ex:
         logging.error(ex)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
