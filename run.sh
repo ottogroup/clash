@@ -12,7 +12,6 @@ function task_init {
 }
 
 function task_lint {
-  shellcheck run.sh
   pipenv run black --check python
 }
 
