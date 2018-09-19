@@ -18,13 +18,13 @@ function task_format {
 
 function task_test {
   cd python
-  pipenv run python setup.py develop
+  pipenv run python setup.py develop &> setup.log
   pipenv run pytest "$@"
 }
 
 function task_clash {
   cd python
-  pipenv run python setup.py develop
+  pipenv run python setup.py develop &> setup.log
   pipenv run clash "$@"
 }
 

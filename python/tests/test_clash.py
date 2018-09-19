@@ -1,4 +1,5 @@
 from unittest.mock import patch, MagicMock
+from collections import namedtuple
 import pytest
 import yaml
 import docker
@@ -29,10 +30,10 @@ class InstanceStub:
 
     def execute(self):
         manifest = yaml.load(self.body["metadata"]["items"][0]["value"])
-        runner = manifest["spec"]["containers"][0]["env"][0]["value"]
-        script = manifest["spec"]["containers"][0]["env"][1]["value"]
-        image = manifest["spec"]["containers"][0]["image"]
-        command = manifest["spec"]["containers"][0]["args"]
+        runner = manifest["write_files"][0]["content"]
+        script = manifest["write_files"][1]["content"]
+        image = TEST_JOB_CONFIG["image"]
+        command = ["bash", "-c", "echo \"$SCRIPT\" > /var/script.sh && echo \"$CLASH_RUNNER\" > /tmp/clash-runner.sh && bash /tmp/clash-runner.sh && cat /tmp/gcloud.log"]
 
         client = docker.from_env()
         self.process = client.containers.run(
@@ -55,6 +56,7 @@ class InstanceStub:
         if self.process:
             self.process.remove(force=True)
 
+Topic = namedtuple('Topic', 'name')
 
 class CloudSdkIntegrationStub:
     def __init__(self):
@@ -69,7 +71,7 @@ class CloudSdkIntegrationStub:
             project, name
         )
         self.publisher.create_topic.side_effect = lambda topic: self.topics.append(
-            topic
+            Topic(name=topic)
         )
 
         self.subscriber = MagicMock()
@@ -122,7 +124,7 @@ class CloudSdkStub:
             project, name
         )
         self.publisher.create_topic.side_effect = lambda topic: self.topics.append(
-            topic
+            Topic(name=topic)
         )
 
         self.subscriber = MagicMock()
@@ -290,19 +292,19 @@ class TestJob:
 
         self.gcloud.get_publisher().create_topic.assert_called_with("mytopic")
 
-    def test_waiting_fails_if_there_is_not_a_running_job(self):
+    def test_attaching_fails_if_there_is_not_a_running_job(self):
         job = clash.Job(gcloud=self.gcloud)
         with pytest.raises(ValueError) as e_info:
-            job.wait()
+            job.attach()
 
-    def test_waiting_succeeds_if_there_is_a_running_job_and_a_message(self):
+    def test_attaching_succeeds_if_there_is_a_running_job_and_a_message(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
-        job.wait()  # throws no exception
+        job.attach()  # throws no exception
 
-    def test_waiting_for_a_job_creates_a_pubsub_subscription(self):
+    def test_attaching_for_a_job_creates_a_pubsub_subscription(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
         self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "mytopic"
         self.gcloud.get_subscriber().topic_path.side_effect = lambda x, y: "mytopic"
@@ -312,13 +314,13 @@ class TestJob:
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
-        result = job.wait()
+        result = job.attach()
 
         self.gcloud.get_subscriber().create_subscription.assert_called_with(
             "mysubscription", "mytopic"
         )
 
-    def test_waiting_pulls_message(self):
+    def test_attaching_pulls_message(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
             MagicMock(ack_id=42)
         ]
@@ -328,13 +330,13 @@ class TestJob:
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
-        result = job.wait()
+        result = job.attach()
 
         self.gcloud.get_subscriber().pull.assert_called_with(
-            "mysubscription", max_messages=1, return_immediately=False
+            "mysubscription", max_messages=1, return_immediately=False, timeout=30
         )
 
-    def test_waiting_acknowledges_messages(self):
+    def test_attaching_acknowledges_messages(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
             MagicMock(ack_id=42)
         ]
@@ -344,13 +346,13 @@ class TestJob:
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
-        result = job.wait()
+        result = job.attach()
 
         self.gcloud.get_subscriber().acknowledge.assert_called_with(
-            "mysubscription", 42
+            "mysubscription", [42]
         )
 
-    def test_waiting_deletes_subscription(self):
+    def test_attaching_deletes_subscription(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
             MagicMock(ack_id=42)
         ]
@@ -360,23 +362,23 @@ class TestJob:
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
-        result = job.wait()
+        result = job.attach()
 
         self.gcloud.get_subscriber().delete_subscription.assert_called_with(
             "mysubscription"
         )
 
-    def test_waiting_deletes_when_pulling_fails(self):
+    def test_attaching_deletes_when_pulling_fails(self):
         self.gcloud.get_subscriber().pull.side_effect = ValueError()
         job = clash.Job(gcloud=self.gcloud)
         job.run("")
 
         with pytest.raises(ValueError) as e_info:
-            job.wait()
+            job.attach()
 
         self.gcloud.get_subscriber().delete_subscription.assert_called()
 
-    def test_waiting_deletes_when_ack_fails(self):
+    def test_attaching_deletes_when_ack_fails(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
             MagicMock(ack_id=42)
         ]
@@ -385,6 +387,6 @@ class TestJob:
         job.run("")
 
         with pytest.raises(ValueError) as e_info:
-            job.wait()
+            job.attach()
 
         self.gcloud.get_subscriber().delete_subscription.assert_called()

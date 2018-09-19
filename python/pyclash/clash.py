@@ -58,7 +58,7 @@ class CloudSdk:
         return glogging.Client()
 
 
-class CloutInitConfig:
+class CloudInitConfig:
     def __init__(self, vm_name, script, job_config):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(searchpath="../templates")
@@ -148,7 +148,7 @@ class Job:
         ).execute()
 
     def _create_machine_config(self, script):
-        cloud_init = CloutInitConfig(self.name, script, self.job_config)
+        cloud_init = CloudInitConfig(self.name, script, self.job_config)
 
         return MachineConfig(
             self.gcloud.get_compute_client(),
@@ -157,7 +157,7 @@ class Job:
             self.job_config,
         ).to_dict()
 
-    def wait(self, print_logs=False):
+    def attach(self, print_logs=False):
         project_id = self.job_config["project_id"]
         publisher = self.gcloud.get_publisher()
         subscriber = self.gcloud.get_subscriber()
@@ -212,30 +212,29 @@ def cli():
     pass
 
 @click.argument("raw_script")
-@click.option('--show-logs', is_flag=True)
-@click.option('--wait', is_flag=True)
+@click.option('--detach', is_flag=True)
 @cli.command()
-def run(raw_script, wait, show_logs):
+def run(raw_script, detach):
     job = Job()
     logging.basicConfig(level=logging.ERROR)
-    with Halo(text='Creating job', spinner='dots'):
+    with Halo(text='Creating job', spinner='dots') as spinner:
         job.run(raw_script)
 
-    print(job.name)
-
-    if wait:
+    if not detach:
         try:
-            job.wait(print_logs=show_logs)
+            job.attach(print_logs=True)
         except Exception as ex:
             logger.error(ex)
+    else:
+        print(job.name)
+
 
 @click.argument("job_name")
-@click.option('--show-logs', is_flag=True)
 @cli.command()
-def wait(job_name, show_logs):
+def attach(job_name):
     job = Job(job_name)
     try:
-        job.wait(print_logs=show_logs)
+        job.attach(print_logs=True)
     except Exception as ex:
         logger.error(ex)
 
