@@ -4,7 +4,12 @@ import uuid
 import json
 import datetime
 import time
+import yaml
+import os.path
 from halo import Halo
+import sys
+import os
+from subprocess import call
 
 import jinja2
 import click
@@ -31,7 +36,6 @@ DEFAULT_JOB_CONFIG = {
         "https://www.googleapis.com/auth/pubsub",
     ],
 }
-
 
 class MemoryCache:
     _CACHE = {}
@@ -163,7 +167,7 @@ class Job:
 
     POLLING_INTERVAL_SECONDS = 30
 
-    def __init__(self, name=None, gcloud=CloudSdk(), job_config=DEFAULT_JOB_CONFIG):
+    def __init__(self, job_config, name=None, gcloud=CloudSdk()):
         self.gcloud = gcloud
         self.job_config = job_config
 
@@ -254,33 +258,71 @@ def attach_to(job):
     except Exception as ex:
         logger.error(ex)
 
+def ensure_config(config_file):
+    if not os.path.isfile(config_file):
+        print(f"Creating basic configuration {config_file}...")
+        with open(config_file, 'w') as f:
+            yaml.dump(DEFAULT_JOB_CONFIG, f, default_flow_style=False)
+        input("Press enter to review the configuration file.")
+        EDITOR = os.environ.get('EDITOR','vim')
+        call([EDITOR, config_file])
+    else:
+        print(f"Using configuration file {config_file}.")
+
+def from_env(value, key):
+  return os.getenv(key, value)
+
+def load_config(config_file):
+    if not os.path.isfile(config_file):
+        raise ValueError("No configration file found. Please create one (e.g. by using clash init)")
+
+    template_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(searchpath=".")
+    )
+    template_env.filters['from_env'] = from_env
+    rendered_config = template_env.get_template(config_file).render()
+    return yaml.load(rendered_config)
 
 @click.group()
 def cli():
     pass
 
+@cli.command()
+@click.option("--config", default="clash.yml")
+def init(config):
+    ensure_config(config)
+    print("Clash is now initialized!")
 
 @click.argument("raw_script")
 @click.option("--detach", is_flag=True)
+@click.option("--config", default="clash.yml")
 @cli.command()
-def run(raw_script, detach):
-    job = Job()
+def run(raw_script, detach, config):
     logging.basicConfig(level=logging.ERROR)
-    with Halo(text="Creating job", spinner="dots") as spinner:
-        job.run(raw_script)
+    try:
+        job_config = load_config(config)
+        job = Job(job_config)
+        with Halo(text="Creating job", spinner="dots") as spinner:
+            job.run(raw_script)
 
-    if not detach:
-        attach_to(job)
-    else:
-        print(job.name)
-
+        if not detach:
+            attach_to(job)
+        else:
+            print(job.name)
+    except Exception as ex:
+        logging.error(ex)
+        sys.exit(1)
 
 @click.argument("job_name")
 @cli.command()
 def attach(job_name):
-    job = Job(job_name)
-    attach_to(job)
-
+    try:
+        job_config = load_config(config)
+        job = Job(job_config, name=job_name)
+        attach_to(job)
+    except Exception as ex:
+        logging.error(ex)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -306,19 +306,19 @@ class TestJob:
     def test_creates_job(self, mock_uuid_call):
         mock_uuid_call.return_value = 1234
 
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         assert "clash-job-1234" == job.name
 
     def test_running_a_job_runs_an_instance(self):
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         job.run("")
 
         self.gcloud.get_compute_client().instances.return_value.insert.return_value.execute.assert_called()
 
     def test_running_a_job_creates_a_topic_path(self):
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         job.run("")
 
@@ -327,7 +327,7 @@ class TestJob:
         )
 
     def test_running_a_job_creates_a_pubsub_topic(self):
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "mytopic"
 
         job.run("")
@@ -335,13 +335,13 @@ class TestJob:
         self.gcloud.get_publisher().create_topic.assert_called_with("mytopic")
 
     def test_attaching_fails_if_there_is_not_a_running_job(self):
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         with pytest.raises(ValueError) as e_info:
             job.attach()
 
     def test_attaching_succeeds_if_there_is_a_running_job_and_a_message(self):
         self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         job.attach()  # throws no exception
@@ -353,7 +353,7 @@ class TestJob:
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
         )
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         result = job.attach()
@@ -369,7 +369,7 @@ class TestJob:
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
         )
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         result = job.attach()
@@ -385,7 +385,7 @@ class TestJob:
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
         )
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         result = job.attach()
@@ -401,7 +401,7 @@ class TestJob:
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
         )
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         result = job.attach()
@@ -412,7 +412,7 @@ class TestJob:
 
     def test_attaching_deletes_subscription_when_pulling_fails(self):
         self.gcloud.get_subscriber().pull.side_effect = ValueError()
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         with pytest.raises(ValueError) as e_info:
@@ -425,7 +425,7 @@ class TestJob:
             MagicMock(ack_id=42)
         ]
         self.gcloud.get_subscriber().acknowledge.side_effect = ValueError()
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         with pytest.raises(ValueError) as e_info:
@@ -439,7 +439,7 @@ class TestJob:
         ]
         logs_reader = MagicMock()
         logs_reader.read_logs.return_value = ["foo", "bar"]
-        job = clash.Job(gcloud=self.gcloud)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
         string_io = io.StringIO()
 
