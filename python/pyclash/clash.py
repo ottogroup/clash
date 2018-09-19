@@ -217,6 +217,8 @@ class Job:
         finally:
             subscriber.delete_subscription(subscription_path)
 
+        return json.loads(message.data)
+
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(
             subscription_path,
@@ -259,7 +261,8 @@ class Job:
 def attach_to(job):
     try:
         logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
-        job.attach(logs_reader)
+        result = job.attach(logs_reader)
+        sys.exit(result["status"])
     except Exception as ex:
         logger.error(ex)
 
