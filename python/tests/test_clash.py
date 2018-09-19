@@ -348,14 +348,18 @@ class TestJob:
             job.attach()
 
     def test_attaching_succeeds_if_there_is_a_running_job_and_a_message(self):
-        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
         job.attach()  # throws no exception
 
     def test_attaching_for_a_job_creates_a_pubsub_subscription(self):
-        self.gcloud.get_subscriber().pull.return_value.received_messages = [MagicMock()]
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
         self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "mytopic"
         self.gcloud.get_subscriber().topic_path.side_effect = lambda x, y: "mytopic"
         self.gcloud.get_subscriber().subscription_path.side_effect = (
@@ -371,8 +375,10 @@ class TestJob:
         )
 
     def test_attaching_pulls_message(self):
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
-            MagicMock(ack_id=42)
+                message
         ]
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
@@ -387,8 +393,10 @@ class TestJob:
         )
 
     def test_attaching_acknowledges_messages(self):
+        message = MagicMock(ack_id=42)
+        message.message = MagicMock(data="{\"status\": 0}")
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
-            MagicMock(ack_id=42)
+                message
         ]
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
@@ -403,8 +411,10 @@ class TestJob:
         )
 
     def test_attaching_deletes_subscription(self):
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
-            MagicMock(ack_id=42)
+                message
         ]
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
@@ -429,8 +439,10 @@ class TestJob:
         self.gcloud.get_subscriber().delete_subscription.assert_called()
 
     def test_attaching_deletes_subscription_when_ack_fails(self):
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
-            MagicMock(ack_id=42)
+                message
         ]
         self.gcloud.get_subscriber().acknowledge.side_effect = ValueError()
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
@@ -442,8 +454,10 @@ class TestJob:
         self.gcloud.get_subscriber().delete_subscription.assert_called()
 
     def test_attaching_prints_logs(self):
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 0}")
         self.gcloud.get_subscriber().pull.return_value.received_messages = [
-            MagicMock(ack_id=42)
+                message
         ]
         logs_reader = MagicMock()
         logs_reader.read_logs.return_value = ["foo", "bar"]
@@ -457,3 +471,16 @@ class TestJob:
         out = string_io.getvalue()
         assert "foo\n" in out
         assert "bar\n" in out
+
+    def test_attaching_returns_status_code(self):
+        message = MagicMock()
+        message.message = MagicMock(data="{\"status\": 127}")
+        self.gcloud.get_subscriber().pull.return_value.received_messages = [
+            message
+        ]
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+        job.run("")
+
+        result = job.attach()
+
+        assert result["status"] == 127

@@ -14,4 +14,4 @@ bash /var/script.sh
 success=$?
 set -e
 
-gcloud pubsub topics publish {{ vm_name }} --message="{'status': $success}" &>> /tmp/gcloud.log
+gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}" &>> /tmp/gcloud.log
