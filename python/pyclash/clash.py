@@ -158,9 +158,37 @@ class Job:
         ).to_dict()
 
     def attach(self, print_logs=False):
+        subscriber = self.gcloud.get_subscriber()
+        subscription_path = self._create_subscription(subscriber)
+
+        try:
+            while True:
+                message = self._pull_message(subscriber, subscription_path)
+                if print_logs:
+                    self._print_logs()
+                if message:
+                    break
+        except Exception as ex:
+            raise ex
+        finally:
+            subscriber.delete_subscription(subscription_path)
+
+    def _pull_message(self, subscriber, subscription_path):
+        response = subscriber.pull(
+            subscription_path, max_messages=1, return_immediately=False, timeout=30
+        )
+
+        if len(response.received_messages) > 0:
+            message = response.received_messages[0]
+            ack_id = message.ack_id
+            subscriber.acknowledge(subscription_path, [ack_id])
+            return message.message
+
+        return None
+
+    def _create_subscription(self, subscriber):
         project_id = self.job_config["project_id"]
         publisher = self.gcloud.get_publisher()
-        subscriber = self.gcloud.get_subscriber()
         topic_path = subscriber.topic_path(project_id, self.name)
         topics = [path.name for path in publisher.list_topics(f"projects/{project_id}")]
 
@@ -172,25 +200,7 @@ class Job:
         )
         subscriber.create_subscription(subscription_path, topic_path)
 
-        try:
-            done = False
-            while not done:
-                response = subscriber.pull(
-                    subscription_path, max_messages=1, return_immediately=False, timeout=30
-                )
-
-                if print_logs:
-                    self._print_logs()
-
-                if len(response.received_messages) > 0:
-                    done = True
-
-            ack_id = response.received_messages[0].ack_id
-            subscriber.acknowledge(subscription_path, [ack_id])
-        except Exception as ex:
-            raise ex
-        finally:
-            subscriber.delete_subscription(subscription_path)
+        return subscription_path
 
     def _print_logs(self):
         time.sleep(Job.STACKDRIVER_DELAY_SECONDS)
