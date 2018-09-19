@@ -3,8 +3,8 @@
 set -e
 
 function __trap_clean_up {
-  gcloud pubsub topics delete {{ vm_name }} --quiet
-  gcloud compute instances delete {{ vm_name }} --quiet --zone {{ zone }}
+  gcloud pubsub topics delete {{ vm_name }} --quiet &> /dev/null
+  gcloud compute instances delete {{ vm_name }} --quiet --zone {{ zone }} &> /dev/null
 }
 
 trap __trap_clean_up EXIT
@@ -14,4 +14,4 @@ bash /var/script.sh
 success=$?
 set -e
 
-gcloud pubsub topics publish {{ vm_name }} --message="{'status': $success}"
+gcloud pubsub topics publish {{ vm_name }} --message="{'status': $success}" &> /dev/null
