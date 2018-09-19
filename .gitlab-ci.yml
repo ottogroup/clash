@@ -1,0 +1,16 @@
+image: eu.gcr.io/yourproject-foobar/ci-build-image
+stages:
+  - lint
+  - test
+
+# Any branch
+lint:
+  stage: lint
+  script:
+    - ./run.sh lint
+
+test:
+  stage: test
+  script:
+    - ./run.sh init
+    - ./run.sh test
