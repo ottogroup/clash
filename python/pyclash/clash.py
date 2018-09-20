@@ -68,7 +68,9 @@ class CloudSdk:
 class CloudInitConfig:
     def __init__(self, vm_name, script, job_config, env_vars={}):
         self.template_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(searchpath="{}/templates".format(os.path.dirname(__file__)))
+            loader=jinja2.FileSystemLoader(
+                searchpath="{}/templates".format(os.path.dirname(__file__))
+            )
         )
         self.vm_name = vm_name
         self.script = script
@@ -80,7 +82,9 @@ class CloudInitConfig:
             "clash_runner.sh.j2"
         ).render(vm_name=self.vm_name, zone=self.job_config["zone"])
 
-        env_var_file = "\n".join([f"{var}={value}" for var, value in self.env_vars.items()])
+        env_var_file = "\n".join(
+            [f"{var}={value}" for var, value in self.env_vars.items()]
+        )
 
         return self.template_env.get_template("cloud-init.yaml.j2").render(
             vm_name=self.vm_name,
@@ -94,7 +98,9 @@ class CloudInitConfig:
 class MachineConfig:
     def __init__(self, compute, vm_name, cloud_init, job_config):
         self.template_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(searchpath="{}/templates".format(os.path.dirname(__file__)))
+            loader=jinja2.FileSystemLoader(
+                searchpath="{}/templates".format(os.path.dirname(__file__))
+            )
         )
         self.compute = compute
         self.vm_name = vm_name
