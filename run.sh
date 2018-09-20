@@ -31,6 +31,16 @@ function task_clash {
   pipenv run clash "$@"
 }
 
+function task_package {
+  cd python
+  pipenv run python setup.py sdist bdist_wheel
+}
+
+function task_release {
+  cd python
+  twine upload dist/*
+}
+
 
 cmd=$1
 shift || true
@@ -40,5 +50,7 @@ case "$cmd" in
   test) task_test "$@" ;;
   clash) task_clash "$@" ;;
   format) task_format ;;
+  package) task_package ;;
+  release) task_release ;;
   *)     task_usage ;;
 esac
