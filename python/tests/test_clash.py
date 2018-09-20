@@ -50,11 +50,7 @@ class InstanceStub:
             environment[var] = value
 
         self.process = client.containers.run(
-            image,
-            command,
-            environment=environment,
-            stderr=True,
-            detach=True,
+            image, command, environment=environment, stderr=True, detach=True
         )
 
         if not self.gcloud.detach:
@@ -272,7 +268,7 @@ class IntegrationTests:
             job.run("exit 0")
 
             assert (
-                b"gcloud.pubsub.topics.publish.clash-job-123.--message={\"status\": 0}"
+                b'gcloud.pubsub.topics.publish.clash-job-123.--message={"status": 0}'
                 in gcloud.instances[0].logs()
             )
 
@@ -285,7 +281,7 @@ class IntegrationTests:
             job.run("exit 1")
 
             assert (
-                b"gcloud.pubsub.topics.publish.clash-job-123.--message={\"status\": 1}"
+                b'gcloud.pubsub.topics.publish.clash-job-123.--message={"status": 1}'
                 in gcloud.instances[0].logs()
             )
 

@@ -10,7 +10,7 @@ install_requires = [
     "click",
     "google-cloud-pubsub",
     "google-cloud-logging",
-    "halo"
+    "halo",
 ]
 
 tests_require = ["pytest", "docker"]

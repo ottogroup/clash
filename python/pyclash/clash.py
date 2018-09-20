@@ -316,7 +316,7 @@ def init(config):
 @click.option("--detach", is_flag=True)
 @click.option("--from-file", is_flag=True)
 @click.option("--config", default="clash.yml")
-@click.option('--env', '-e', multiple=True)
+@click.option("--env", "-e", multiple=True)
 @cli.command()
 def run(script, detach, from_file, config, env):
     logging.basicConfig(level=logging.ERROR)
