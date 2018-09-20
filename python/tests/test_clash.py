@@ -34,6 +34,7 @@ class InstanceStub:
         manifest = yaml.load(self.body["metadata"]["items"][0]["value"])
         runner = manifest["write_files"][0]["content"]
         script = manifest["write_files"][1]["content"]
+        env = manifest["write_files"][2]["content"]
         image = TEST_JOB_CONFIG["image"]
         command = [
             "bash",
@@ -42,10 +43,16 @@ class InstanceStub:
         ]
 
         client = docker.from_env()
+
+        environment = {"SCRIPT": script, "CLASH_RUNNER": runner}
+        for env_var in env.splitlines():
+            var, value = env_var.split("=")
+            environment[var] = value
+
         self.process = client.containers.run(
             image,
             command,
-            environment={"SCRIPT": script, "CLASH_RUNNER": runner},
+            environment=environment,
             stderr=True,
             detach=True,
         )
@@ -239,7 +246,7 @@ class TestMachineConfig:
         )
 
 
-class JobIntegrationTests:
+class TestJobIntegration:
     def test_job_actually_runs_script(self):
         with CloudSdkIntegrationStub() as gcloud:
             job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
@@ -304,6 +311,17 @@ class JobIntegrationTests:
             job.run_file("tests/script.sh")
 
             assert b"hello\nworld\n" in gcloud.instances[0].logs()
+
+    def test_job_uses_given_env_vars(self):
+        with CloudSdkIntegrationStub() as gcloud:
+            script = """
+            echo "$MESSAGE"
+            """
+            job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+
+            job.run(script, env_vars={"MESSAGE": "foobar"})
+
+            assert b"foobar\n" in gcloud.instances[0].logs()
 
 
 class TestJob:

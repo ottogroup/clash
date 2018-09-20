@@ -9,12 +9,17 @@ write_files:
   owner: clash
   permissions: 0755
   content: |
-    {{ clash_runner_script | indent(4, False) }}
+    {{ clash_runner_script | indent(4, false) }}
 - path: "/var/script.sh"
   owner: clash
   permissions: 0755
   content: |
     {{ script | indent(4, False) }}
+- path: "/var/clash.env"
+  owner: clash
+  permissions: 0755
+  content: |
+    {{ env_var_file | indent(4, false) }}
 - path: /etc/systemd/system/clash.service
   permissions: 0644
   owner: root
@@ -23,7 +28,7 @@ write_files:
     Description=Start Clash-Runner
 
     [Service]
-    ExecStart=/usr/bin/sudo -u clash /usr/bin/docker run -v /var/clash-runner.sh:/var/clash-runner.sh -v /var/script.sh:/var/script.sh --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/clash-runner.sh
+    ExecStart=/usr/bin/sudo -u clash /usr/bin/docker run --env-file /var/clash.env -v /var/clash-runner.sh:/var/clash-runner.sh -v /var/script.sh:/var/script.sh --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/clash-runner.sh
     ExecStop=/usr/bin/sudo -u clash /usr/bin/docker stop clash-runner
     ExecStopPost=/usr/bin/sudo -u clash /usr/bin/docker rm clash-runner
 
