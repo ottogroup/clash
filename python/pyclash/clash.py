@@ -20,7 +20,7 @@ from google.cloud import logging as glogging
 logger = logging.getLogger(__name__)
 
 DEFAULT_JOB_CONFIG = {
-    "project_id": "yourproject-foobar",
+    "project_id": "my-gcp-project",
     "image": "google/cloud-sdk",
     "zone": "europe-west1-b",
     "region": "europe-west1",
