@@ -1,8 +1,8 @@
+# -*- coding: future_fstrings -*-
 import argparse
 import logging
 import uuid
 import json
-import datetime
 import time
 import yaml
 import os.path
@@ -10,6 +10,8 @@ from halo import Halo
 import sys
 import os
 from subprocess import call
+import datetime
+from datetime import tzinfo, timedelta
 
 import jinja2
 import click
@@ -139,6 +141,20 @@ class MachineConfig:
         return rendered
 
 
+ZERO = datetime.timedelta(0)
+
+class UTC(tzinfo):
+    def utcoffset(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return ZERO
+
+utc = UTC()
+
 class StackdriverLogsReader:
 
     STACKDRIVER_DELAY_SECONDS = 5
@@ -150,13 +166,13 @@ class StackdriverLogsReader:
         time.sleep(StackdriverLogsReader.STACKDRIVER_DELAY_SECONDS)
 
     def _now(self):
-        return datetime.datetime.now(datetime.timezone.utc)
+        return datetime.datetime.now(utc)
 
     def _delta(self, delta_time):
         return datetime.timedelta(seconds=delta_time)
 
     def _to_iso_format(self, local_time):
-        return local_time.astimezone().isoformat()
+        return local_time.isoformat('T')
 
     def read_logs(self, job, from_seconds_ago):
         project_id = job.job_config["project_id"]
