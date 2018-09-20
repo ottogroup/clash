@@ -68,7 +68,7 @@ class CloudSdk:
 class CloudInitConfig:
     def __init__(self, vm_name, script, job_config, env_vars={}):
         self.template_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(searchpath="templates")
+            loader=jinja2.FileSystemLoader(searchpath="{}/templates".format(os.path.dirname(__file__)))
         )
         self.vm_name = vm_name
         self.script = script
@@ -94,7 +94,7 @@ class CloudInitConfig:
 class MachineConfig:
     def __init__(self, compute, vm_name, cloud_init, job_config):
         self.template_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(searchpath="templates")
+            loader=jinja2.FileSystemLoader(searchpath="{}/templates".format(os.path.dirname(__file__)))
         )
         self.compute = compute
         self.vm_name = vm_name
