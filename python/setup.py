@@ -1,14 +1,14 @@
 import os
 from setuptools import setup, find_packages
 
-version = open("../VERSION").read().rstrip()
+version = open("VERSION").read().rstrip()
 
 install_requires = []
 
 tests_require = ["pytest"]
 
 setup(
-    name="clash",
+    name="pyclash",
     version=version,
     description="Running bash scripts on the Google Compute Engine",
     author="Otto Group",

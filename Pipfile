@@ -13,6 +13,9 @@ click = "*"
 google-cloud-pubsub = "*"
 google-cloud-logging = "*"
 halo = "*"
+setuptools = "*"
+wheel = "*"
+twine = "*"
 
 [dev-packages]
 
