@@ -3,7 +3,7 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh init | lint | build | test | clash | format'
+  echo 'Usage: ./run.sh init | lint | build | test | clash | format | package | release'
   exit 1
 }
 
