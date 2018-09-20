@@ -246,7 +246,7 @@ class TestMachineConfig:
         )
 
 
-class TestJobIntegration:
+class IntegrationTests:
     def test_job_actually_runs_script(self):
         with CloudSdkIntegrationStub() as gcloud:
             job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
