@@ -331,7 +331,7 @@ def run(script, detach, from_file, config, env):
         job = Job(job_config)
         with Halo(text="Creating job", spinner="dots") as spinner:
             if from_file:
-                job.run_file(script)
+                job.run_file(script, env_vars)
             else:
                 job.run(script, env_vars)
 
