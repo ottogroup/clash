@@ -13,7 +13,6 @@ click = "*"
 google-cloud-pubsub = "*"
 google-cloud-logging = "*"
 halo = "*"
-black = "*"
 
 [dev-packages]
 
