@@ -16,6 +16,7 @@ halo = "*"
 setuptools = "*"
 wheel = "*"
 twine = "*"
+black = "*"
 
 [dev-packages]
 
