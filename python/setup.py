@@ -11,9 +11,10 @@ install_requires = [
     "google-cloud-pubsub",
     "google-cloud-logging",
     "halo",
+    "future-fstrings",
 ]
 
-tests_require = ["pytest", "docker"]
+tests_require = ["pytest", "docker", "mock"]
 
 setup(
     name="pyclash",

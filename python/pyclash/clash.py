@@ -299,7 +299,7 @@ def ensure_config(config_file):
         print(f"Creating basic configuration {config_file}...")
         with open(config_file, "w") as f:
             yaml.dump(DEFAULT_JOB_CONFIG, f, default_flow_style=False)
-        input("Press enter to review the configuration file.")
+        raw_input("Press enter to review the configuration file.")
         EDITOR = os.environ.get("EDITOR", "vim")
         call([EDITOR, config_file])
     else:
