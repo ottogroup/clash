@@ -272,7 +272,7 @@ class TestJobIntegration:
             job.run("exit 0")
 
             assert (
-                b"gcloud.pubsub.topics.publish.clash-job-123.--message={'status': 0}"
+                b"gcloud.pubsub.topics.publish.clash-job-123.--message={\"status\": 0}"
                 in gcloud.instances[0].logs()
             )
 
@@ -285,7 +285,7 @@ class TestJobIntegration:
             job.run("exit 1")
 
             assert (
-                b"gcloud.pubsub.topics.publish.clash-job-123.--message={'status': 1}"
+                b"gcloud.pubsub.topics.publish.clash-job-123.--message={\"status\": 1}"
                 in gcloud.instances[0].logs()
             )
 
