@@ -16,8 +16,10 @@ halo = "*"
 setuptools = "*"
 wheel = "*"
 twine = "*"
+future-fstrings = "*"
+mock = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.7"
+python_version = "2.7"

@@ -1,12 +1,21 @@
-from unittest.mock import patch, MagicMock
+# -*- coding: future_fstrings -*-
+from mock import patch, MagicMock
 from collections import namedtuple
 import pytest
 import yaml
 import docker
-import io
-from contextlib import redirect_stdout
+from io import BytesIO as StringIO
+import sys
+import contextlib
 
 from pyclash import clash
+
+@contextlib.contextmanager
+def redirect_stdout(target):
+    original = sys.stdout
+    sys.stdout = target
+    yield
+    sys.stdout = original
 
 TEST_JOB_CONFIG = {
     "project_id": "***REMOVED***",
@@ -241,8 +250,10 @@ class TestMachineConfig:
             TEST_JOB_CONFIG["machine_type"],
         )
 
+class DisablePyTestCollectionMixin(object):
+  __test__ = False
 
-class IntegrationTests:
+class TestJobIntegration(DisablePyTestCollectionMixin):
     def test_job_actually_runs_script(self):
         with CloudSdkIntegrationStub() as gcloud:
             job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
@@ -467,7 +478,7 @@ class TestJob:
         logs_reader.read_logs.return_value = ["foo", "bar"]
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
-        string_io = io.StringIO()
+        string_io = StringIO()
 
         with redirect_stdout(string_io):
             job.attach(logs_reader)
