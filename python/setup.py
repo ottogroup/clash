@@ -3,9 +3,17 @@ from setuptools import setup, find_packages
 
 version = open("VERSION").read().rstrip()
 
-install_requires = []
+install_requires = [
+    "jinja2",
+    "google-api-python-client",
+    "pyyaml",
+    "click",
+    "google-cloud-pubsub",
+    "google-cloud-logging",
+    "halo"
+]
 
-tests_require = ["pytest"]
+tests_require = ["pytest", "docker"]
 
 setup(
     name="pyclash",
