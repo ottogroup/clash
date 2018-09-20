@@ -38,7 +38,7 @@ function task_package {
 
 function task_release {
   cd python
-  twine upload dist/*
+  pipenv run twine upload dist/*
 }
 
 
