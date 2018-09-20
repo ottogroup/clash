@@ -66,24 +66,28 @@ class CloudSdk:
 
 
 class CloudInitConfig:
-    def __init__(self, vm_name, script, job_config):
+    def __init__(self, vm_name, script, job_config, env_vars={}):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(searchpath="../templates")
         )
         self.vm_name = vm_name
         self.script = script
         self.job_config = job_config
+        self.env_vars = env_vars
 
     def render(self):
         clash_runner_script = self.template_env.get_template(
             "clash_runner.sh.j2"
         ).render(vm_name=self.vm_name, zone=self.job_config["zone"])
 
+        env_var_file = "\n".join([f"{var}={value}" for var, value in self.env_vars.items()])
+
         return self.template_env.get_template("cloud-init.yaml.j2").render(
             vm_name=self.vm_name,
             image=self.job_config["image"],
             clash_runner_script=clash_runner_script,
             script=self.script,
+            env_var_file=env_var_file,
         )
 
 
@@ -177,8 +181,8 @@ class Job:
         else:
             self.name = name
 
-    def run(self, script):
-        machine_config = self._create_machine_config(script)
+    def run(self, script, env_vars={}):
+        machine_config = self._create_machine_config(script, env_vars)
 
         client = self.gcloud.get_publisher()
         topic_path = client.topic_path(self.job_config["project_id"], self.name)
@@ -190,13 +194,13 @@ class Job:
             body=machine_config,
         ).execute()
 
-    def run_file(self, script_file):
+    def run_file(self, script_file, env_vars={}):
         with open(script_file, "r") as f:
             script = f.read()
-        self.run(script)
+        self.run(script, env_vars)
 
-    def _create_machine_config(self, script):
-        cloud_init = CloudInitConfig(self.name, script, self.job_config)
+    def _create_machine_config(self, script, env_vars):
+        cloud_init = CloudInitConfig(self.name, script, self.job_config, env_vars)
 
         return MachineConfig(
             self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config
@@ -312,9 +316,16 @@ def init(config):
 @click.option("--detach", is_flag=True)
 @click.option("--from-file", is_flag=True)
 @click.option("--config", default="clash.yml")
+@click.option('--env', '-e', multiple=True)
 @cli.command()
-def run(script, detach, from_file, config):
+def run(script, detach, from_file, config, env):
     logging.basicConfig(level=logging.ERROR)
+
+    env_vars = {}
+    for e in env:
+        var, value = e.split("=")
+        env_vars[var] = value
+
     try:
         job_config = load_config(config)
         job = Job(job_config)
@@ -322,7 +333,7 @@ def run(script, detach, from_file, config):
             if from_file:
                 job.run_file(script)
             else:
-                job.run(script)
+                job.run(script, env_vars)
 
         if not detach:
             attach_to(job)
