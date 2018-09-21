@@ -240,7 +240,6 @@ class Job:
                     self._print_logs(logs_reader)
 
                 if message:
-                    subscriber.delete_subscription(subscription_path)
                     return json.loads(message.data)
 
         except Exception as ex:
