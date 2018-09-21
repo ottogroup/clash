@@ -186,7 +186,7 @@ class StackdriverLogsReader:
         """
         return [
             entry.payload["data"]
-            for entry in self.logging_client.list_entries(filter_=FILTER)
+            for entry in self.logging_client.list_entries(filter_=FILTER) if "data" in entry.payload
         ]
 
 
@@ -235,16 +235,18 @@ class Job:
         try:
             while True:
                 message = self._pull_message(subscriber, subscription_path)
+
                 if logs_reader:
                     self._print_logs(logs_reader)
+
                 if message:
-                    break
+                    subscriber.delete_subscription(subscription_path)
+                    return json.loads(message.data)
+
         except Exception as ex:
             raise ex
         finally:
             subscriber.delete_subscription(subscription_path)
-
-        return json.loads(message.data)
 
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(
@@ -286,12 +288,9 @@ class Job:
 
 
 def attach_to(job):
-    try:
-        logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
-        result = job.attach(logs_reader)
-        sys.exit(result["status"])
-    except Exception as ex:
-        logger.error(ex)
+    logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
+    result = job.attach(logs_reader)
+    sys.exit(result["status"])
 
 
 def ensure_config(config_file):
