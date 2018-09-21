@@ -7,6 +7,7 @@ import docker
 from io import BytesIO as StringIO
 import sys
 import contextlib
+import os
 
 from pyclash import clash
 
