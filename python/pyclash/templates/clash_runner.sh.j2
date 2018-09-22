@@ -9,6 +9,11 @@ function __trap_clean_up {
 
 trap __trap_clean_up EXIT
 
+{% for bucket in gcs_mounts %}
+mkdir -p {{ gcs_mounts[bucket] }}
+gcsfuse --implicit-dirs {{ bucket }} {{ gcs_mounts[bucket] }}
+{% endfor %}
+
 {% for directory in gcs_target %}
 mkdir -p {{ directory }}
 {% endfor %}

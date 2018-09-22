@@ -68,7 +68,7 @@ class CloudSdk:
 
 
 class CloudInitConfig:
-    def __init__(self, vm_name, script, job_config, env_vars={}, gcs_target={}):
+    def __init__(self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
                 searchpath="{}/templates".format(os.path.dirname(__file__))
@@ -79,11 +79,12 @@ class CloudInitConfig:
         self.job_config = job_config
         self.env_vars = env_vars
         self.gcs_target = gcs_target
+        self.gcs_mounts = gcs_mounts
 
     def render(self):
         clash_runner_script = self.template_env.get_template(
             "clash_runner.sh.j2"
-        ).render(vm_name=self.vm_name, zone=self.job_config["zone"], gcs_target=self.gcs_target)
+        ).render(vm_name=self.vm_name, zone=self.job_config["zone"], gcs_target=self.gcs_target, gcs_mounts=self.gcs_mounts)
 
         env_var_file = "\n".join(
             [f"{var}={value}" for var, value in self.env_vars.items()]
@@ -204,8 +205,8 @@ class Job:
         else:
             self.name = name
 
-    def run(self, script, env_vars={}, gcs_target={}):
-        machine_config = self._create_machine_config(script, env_vars, gcs_target)
+    def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
+        machine_config = self._create_machine_config(script, env_vars, gcs_target, gcs_mounts)
 
         client = self.gcloud.get_publisher()
         topic_path = client.topic_path(self.job_config["project_id"], self.name)
@@ -222,8 +223,8 @@ class Job:
             script = f.read()
         self.run(script, env_vars, gcs_target)
 
-    def _create_machine_config(self, script, env_vars, gcs_target):
-        cloud_init = CloudInitConfig(self.name, script, self.job_config, env_vars, gcs_target)
+    def _create_machine_config(self, script, env_vars, gcs_target, gcs_mounts):
+        cloud_init = CloudInitConfig(self.name, script, self.job_config, env_vars, gcs_target, gcs_mounts)
 
         return MachineConfig(
             self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config
