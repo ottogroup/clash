@@ -19,10 +19,16 @@ function task_format {
   pipenv run black python
 }
 
-function task_test {
+function task_unit_test {
   cd python
   pipenv run python setup.py develop
-  pipenv run pytest "$@"
+  pipenv run pytest tests/test_clash.py
+}
+
+function task_integration_test {
+  cd python
+  docker build -f tests/Dockerfile -t 'test-cloudsdk:latest' tests/
+  pipenv run pytest tests/test_integration.py
 }
 
 function task_clash {
@@ -47,7 +53,8 @@ shift || true
 case "$cmd" in
   init) task_init ;;
   lint) task_lint ;;
-  test) task_test "$@" ;;
+  unit-test) task_unit_test ;;
+  integration-test) task_integration_test ;;
   clash) task_clash "$@" ;;
   format) task_format ;;
   package) task_package ;;
