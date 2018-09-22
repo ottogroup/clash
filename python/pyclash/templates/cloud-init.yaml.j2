@@ -28,7 +28,7 @@ write_files:
     Description=Start Clash-Runner
 
     [Service]
-    ExecStart=/usr/bin/sudo -u clash /usr/bin/docker run --env-file /var/clash.env -v /var/clash-runner.sh:/var/clash-runner.sh -v /var/script.sh:/var/script.sh --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/clash-runner.sh
+    ExecStart=/usr/bin/sudo -u clash /usr/bin/docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/clash-runner.sh:/var/clash-runner.sh -v /var/script.sh:/var/script.sh --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/clash-runner.sh
     ExecStop=/usr/bin/sudo -u clash /usr/bin/docker stop clash-runner
     ExecStopPost=/usr/bin/sudo -u clash /usr/bin/docker rm clash-runner
 
