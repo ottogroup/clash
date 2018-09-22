@@ -217,10 +217,10 @@ class Job:
             body=machine_config,
         ).execute()
 
-    def run_file(self, script_file, env_vars={}):
+    def run_file(self, script_file, env_vars={}, gcs_target={}):
         with open(script_file, "r") as f:
             script = f.read()
-        self.run(script, env_vars)
+        self.run(script, env_vars, gcs_target)
 
     def _create_machine_config(self, script, env_vars, gcs_target):
         cloud_init = CloudInitConfig(self.name, script, self.job_config, env_vars, gcs_target)
@@ -338,8 +338,9 @@ def init(config):
 @click.option("--from-file", is_flag=True)
 @click.option("--config", default="clash.yml")
 @click.option("--env", "-e", multiple=True)
+@click.option("--gcs-target", multiple=True)
 @cli.command()
-def run(script, detach, from_file, config, env):
+def run(script, detach, from_file, config, env, gcs_target):
     logging.basicConfig(level=logging.ERROR)
 
     env_vars = {}
@@ -347,14 +348,19 @@ def run(script, detach, from_file, config, env):
         var, value = e.split("=")
         env_vars[var] = value
 
+    gcs_targets = {}
+    for t in gcs_target:
+        directory, gcs_bucket = t.split(":")
+        gcs_targets[directory] = gcs_bucket
+
     try:
         job_config = load_config(config)
         job = Job(job_config)
         with Halo(text="Creating job", spinner="dots") as spinner:
             if from_file:
-                job.run_file(script, env_vars)
+                job.run_file(script, env_vars, gcs_targets)
             else:
-                job.run(script, env_vars)
+                job.run(script, env_vars, gcs_targets)
 
         if not detach:
             attach_to(job)
