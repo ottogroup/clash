@@ -78,7 +78,6 @@ class InstanceStub:
 
 Topic = namedtuple("Topic", "name")
 
-
 class CloudSdkIntegrationStub:
     def __init__(self):
 
@@ -115,9 +114,6 @@ class CloudSdkIntegrationStub:
         self.compute.instances.return_value.insert.side_effect = insert
 
     def __enter__(self):
-        client = docker.from_env()
-        with open("tests/Dockerfile", "rb") as dockerfile:
-            client.images.build(path="tests/", tag="test-cloudsdk:latest")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -331,6 +327,20 @@ class TestJobIntegration(DisablePyTestCollectionMixin):
 
             assert b"foobar\n" in gcloud.instances[0].logs()
 
+    def test_passing_gcs_target_invokes_gsutil(self):
+        with CloudSdkIntegrationStub() as gcloud:
+            job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+
+            job.run("", gcs_target={"/tmp/artifacts": "mybucket", "/tmp/models": "modelsbucket"})
+
+            assert (
+                    b'gsutil.cp.-r./tmp/artifacts/*.gs://mybucket'
+                in gcloud.instances[0].logs()
+            )
+            assert (
+                    b'gsutil.cp.-r./tmp/models/*.gs://modelsbucket'
+                in gcloud.instances[0].logs()
+            )
 
 class TestJob:
     def setup(self):
@@ -498,7 +508,6 @@ class TestJob:
         result = job.attach()
 
         assert result["status"] == 127
-
 
 def test_load_config():
     os.environ["MACHINE_TYPE"] = "strongmachine"

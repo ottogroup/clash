@@ -9,9 +9,17 @@ function __trap_clean_up {
 
 trap __trap_clean_up EXIT
 
+{% for directory in gcs_target %}
+mkdir -p {{ directory }}
+{% endfor %}
+
 set +e
 bash /var/script.sh
 success=$?
 set -e
+
+{% for directory in gcs_target %}
+gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
+{% endfor %}
 
 gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}" &>> /tmp/gcloud.log
