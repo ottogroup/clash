@@ -231,7 +231,7 @@ class Job:
             body=machine_config,
         ).execute()
 
-    def run_file(self, script_file, env_vars={}, gcs_target={}):
+    def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}):
         with open(script_file, "r") as f:
             script = f.read()
         self.run(script, env_vars, gcs_target)
@@ -355,6 +355,7 @@ def init(config):
 @click.option("--config", default="clash.yml")
 @click.option("--env", "-e", multiple=True)
 @click.option("--gcs-target", multiple=True)
+@click.option("--gcs-mount", multiple=True)
 @cli.command()
 def run(script, detach, from_file, config, env, gcs_target):
     logging.basicConfig(level=logging.ERROR)
@@ -369,14 +370,19 @@ def run(script, detach, from_file, config, env, gcs_target):
         directory, gcs_bucket = t.split(":")
         gcs_targets[directory] = gcs_bucket
 
+    gcs_mounts = {}
+    for t in gcs_mount:
+        gcs_bucket, mount_point = t.split(":")
+        gcs_mounts[gcs_bucket] = mount_point
+
     try:
         job_config = load_config(config)
         job = Job(job_config)
         with Halo(text="Creating job", spinner="dots") as spinner:
             if from_file:
-                job.run_file(script, env_vars, gcs_targets)
+                job.run_file(script, env_vars, gcs_targets, gcs_mounts)
             else:
-                job.run(script, env_vars, gcs_targets)
+                job.run(script, env_vars, gcs_targets, gcs_mounts)
 
         if not detach:
             attach_to(job)
