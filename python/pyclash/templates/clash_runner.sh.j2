@@ -21,10 +21,10 @@ mkdir -p {{ directory }}
 set +e
 bash /var/script.sh
 success=$?
-set -e
 
 {% for directory in gcs_target %}
 gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
 {% endfor %}
+set -e
 
 gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}" &>> /tmp/gcloud.log

@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_JOB_CONFIG = {
     "project_id": "my-gcp-project",
     "image": "google/cloud-sdk",
+    "privileged": False,
     "zone": "europe-west1-b",
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
@@ -103,6 +104,7 @@ class CloudInitConfig:
             clash_runner_script=clash_runner_script,
             script=self.script,
             env_var_file=env_var_file,
+            privileged=self.job_config["privileged"],
         )
 
 
@@ -357,7 +359,7 @@ def init(config):
 @click.option("--gcs-target", multiple=True)
 @click.option("--gcs-mount", multiple=True)
 @cli.command()
-def run(script, detach, from_file, config, env, gcs_target):
+def run(script, detach, from_file, config, env, gcs_target, gcs_mount):
     logging.basicConfig(level=logging.ERROR)
 
     env_vars = {}
