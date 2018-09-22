@@ -16,7 +16,7 @@ function task_lint {
 }
 
 function task_format {
-  pipenv run black python
+  black python/
 }
 
 function task_unit_test {

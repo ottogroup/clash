@@ -68,7 +68,9 @@ class CloudSdk:
 
 
 class CloudInitConfig:
-    def __init__(self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}):
+    def __init__(
+        self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}
+    ):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
                 searchpath="{}/templates".format(os.path.dirname(__file__))
@@ -84,7 +86,12 @@ class CloudInitConfig:
     def render(self):
         clash_runner_script = self.template_env.get_template(
             "clash_runner.sh.j2"
-        ).render(vm_name=self.vm_name, zone=self.job_config["zone"], gcs_target=self.gcs_target, gcs_mounts=self.gcs_mounts)
+        ).render(
+            vm_name=self.vm_name,
+            zone=self.job_config["zone"],
+            gcs_target=self.gcs_target,
+            gcs_mounts=self.gcs_mounts,
+        )
 
         env_var_file = "\n".join(
             [f"{var}={value}" for var, value in self.env_vars.items()]
@@ -145,6 +152,7 @@ class MachineConfig:
 
 ZERO = datetime.timedelta(0)
 
+
 class UTC(tzinfo):
     def utcoffset(self, dt):
         return ZERO
@@ -155,7 +163,9 @@ class UTC(tzinfo):
     def dst(self, dt):
         return ZERO
 
+
 utc = UTC()
+
 
 class StackdriverLogsReader:
 
@@ -174,7 +184,7 @@ class StackdriverLogsReader:
         return datetime.timedelta(seconds=delta_time)
 
     def _to_iso_format(self, local_time):
-        return local_time.isoformat('T')
+        return local_time.isoformat("T")
 
     def read_logs(self, job, from_seconds_ago):
         project_id = job.job_config["project_id"]
@@ -188,7 +198,8 @@ class StackdriverLogsReader:
         """
         return [
             entry.payload["data"]
-            for entry in self.logging_client.list_entries(filter_=FILTER) if "data" in entry.payload
+            for entry in self.logging_client.list_entries(filter_=FILTER)
+            if "data" in entry.payload
         ]
 
 
@@ -206,7 +217,9 @@ class Job:
             self.name = name
 
     def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
-        machine_config = self._create_machine_config(script, env_vars, gcs_target, gcs_mounts)
+        machine_config = self._create_machine_config(
+            script, env_vars, gcs_target, gcs_mounts
+        )
 
         client = self.gcloud.get_publisher()
         topic_path = client.topic_path(self.job_config["project_id"], self.name)
@@ -224,7 +237,9 @@ class Job:
         self.run(script, env_vars, gcs_target)
 
     def _create_machine_config(self, script, env_vars, gcs_target, gcs_mounts):
-        cloud_init = CloudInitConfig(self.name, script, self.job_config, env_vars, gcs_target, gcs_mounts)
+        cloud_init = CloudInitConfig(
+            self.name, script, self.job_config, env_vars, gcs_target, gcs_mounts
+        )
 
         return MachineConfig(
             self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config

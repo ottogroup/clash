@@ -12,12 +12,14 @@ from pyclash import clash
 
 Topic = namedtuple("Topic", "name")
 
+
 @contextlib.contextmanager
 def redirect_stdout(target):
     original = sys.stdout
     sys.stdout = target
     yield
     sys.stdout = original
+
 
 TEST_JOB_CONFIG = {
     "project_id": "***REMOVED***",
@@ -32,6 +34,7 @@ TEST_JOB_CONFIG = {
         "https://www.googleapis.com/auth/compute",
     ],
 }
+
 
 class CloudSdkStub:
     def __init__(self):
@@ -314,6 +317,7 @@ class TestJob:
         result = job.attach()
 
         assert result["status"] == 127
+
 
 def test_load_config():
     os.environ["MACHINE_TYPE"] = "strongmachine"
