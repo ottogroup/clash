@@ -3,7 +3,7 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh init | lint | build | test | clash | format | package | release'
+  echo 'Usage: ./run.sh init | lint | build | test | clash | format | package | release | deploy-airflow-plugin'
   exit 1
 }
 
@@ -47,6 +47,13 @@ function task_release {
   pipenv run twine upload dist/*
 }
 
+function task_deploy_airflow_plugin {
+  gcloud composer environments storage plugins import --environment 'biws-composer' \
+      --location 'europe-west1' \
+      --source airflow/clash_plugin.py \
+      --destination 'tooling/'
+}
+
 
 cmd=$1
 shift || true
@@ -59,5 +66,6 @@ case "$cmd" in
   format) task_format ;;
   package) task_package ;;
   release) task_release ;;
+  deploy-airflow-plugin) task_deploy_airflow_plugin ;;
   *)     task_usage ;;
 esac
