@@ -5,11 +5,11 @@ version = open("VERSION").read().rstrip()
 
 install_requires = [
     "jinja2",
-    "google-api-python-client",
+    "google-api-python-client>=1.7.4",
     "pyyaml",
     "click",
-    "google-cloud-pubsub",
-    "google-cloud-logging",
+    "google-cloud-pubsub>=0.38.0",
+    "google-cloud-logging>=1.7.0",
     "halo",
     "future-fstrings",
 ]
