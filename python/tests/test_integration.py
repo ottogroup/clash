@@ -12,6 +12,7 @@ TEST_JOB_CONFIG = {
     "image": "test-cloudsdk:latest",
     "zone": "europe-west1-b",
     "region": "europe-west1",
+    "privileged": False,
     "subnetwork": "default-europe-west1",
     "machine_type": "n1-standard-1",
     "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},

@@ -3,7 +3,7 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh init | lint | build | test | clash | format | package | release | deploy-airflow-plugin'
+  echo 'Usage: ./run.sh init | lint | build | unit-test | integration-test | clash | format | package | release | deploy-airflow-plugin'
   exit 1
 }
 
