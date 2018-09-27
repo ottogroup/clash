@@ -20,7 +20,7 @@ class ClashOperator(BaseOperator):
         *args,
         **kwargs
     ):
-        job = clash.Job(job_config=job_config)
+        self.job = clash.Job(job_config=job_config)
 
         self.script = script
         self.env_vars = env_vars
@@ -31,7 +31,7 @@ class ClashOperator(BaseOperator):
 
     def execute(self, context):
         log.info("Running Clash Job...")
-        job.run(
+        self.job.run(
             self.script,
             env_vars=self.env_vars,
             gcs_target=self.gcs_target,
