@@ -15,4 +15,4 @@ lint:
 test:
   stage: test
   script:
-    - ./run.sh test
+    - ./run.sh unit-test
