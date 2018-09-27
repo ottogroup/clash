@@ -200,7 +200,9 @@ class StackdriverLogsReader:
         """
         return [
             entry.payload["data"]
-            for entry in self.logging_client.list_entries(filter_=FILTER)
+            for entry in self.logging_client.list_entries(
+                projects=[project_id], filter_=FILTER
+            )
             if "data" in entry.payload
         ]
 
