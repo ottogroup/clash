@@ -25,6 +25,7 @@ TEST_JOB_CONFIG = {
     "project_id": "yourproject-foobar",
     "image": "test-cloudsdk:latest",
     "zone": "europe-west1-b",
+    "privileged": False,
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
     "machine_type": "n1-standard-1",

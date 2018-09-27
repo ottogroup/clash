@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-version = open("VERSION").read().rstrip()
+version = open(os.path.join(os.path.dirname(__file__), "VERSION")).read().rstrip()
 
 install_requires = [
     "jinja2",

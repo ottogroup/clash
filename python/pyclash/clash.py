@@ -74,7 +74,7 @@ class CloudInitConfig:
     ):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
-                searchpath="{}/templates".format(os.path.dirname(__file__))
+                searchpath=os.path.join(os.path.dirname(__file__), "templates")
             )
         )
         self.vm_name = vm_name
@@ -112,7 +112,7 @@ class MachineConfig:
     def __init__(self, compute, vm_name, cloud_init, job_config):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
-                searchpath="{}/templates".format(os.path.dirname(__file__))
+                searchpath=os.path.join(os.path.dirname(__file__), "templates")
             )
         )
         self.compute = compute
