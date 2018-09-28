@@ -304,7 +304,7 @@ class Job:
         logs_reader.wait_for_logs_arrival()
         logs = logs_reader.read_logs(self, Job.POLLING_INTERVAL_SECONDS)
         for entry in logs:
-            print(entry)
+            logger.info(entry)
 
 
 def attach_to(job):
