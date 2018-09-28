@@ -93,7 +93,9 @@ class TestStackdriverLogsReader:
 
         logs_reader.read_logs(self.job, 20)
 
-        self.logging_client.list_entries.assert_called_with(filter_=EXPECTED_FILTER)
+        self.logging_client.list_entries.assert_called_with(
+            projects=[TEST_JOB_CONFIG["project_id"]], filter_=EXPECTED_FILTER
+        )
 
     def test_return_logs(self):
         logs_reader = clash.StackdriverLogsReader(self.logging_client)
