@@ -1,4 +1,5 @@
 # -*- coding: future_fstrings -*-
+import mock
 from mock import patch, MagicMock
 from collections import namedtuple
 import pytest
@@ -8,6 +9,7 @@ import sys
 import contextlib
 import os
 
+import pyclash
 from pyclash import clash
 
 Topic = namedtuple("Topic", "name")
@@ -298,17 +300,14 @@ class TestJob:
         message.message = MagicMock(data='{"status": 0}')
         self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
         logs_reader = MagicMock()
-        logs_reader.read_logs.return_value = ["foo", "bar"]
+        logs_reader.read_logs.return_value = ["foo"]
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
-        string_io = StringIO()
 
-        with redirect_stdout(string_io):
+        with mock.patch("pyclash.clash.logger") as mock_logger:
             job.attach(logs_reader)
 
-        out = string_io.getvalue()
-        assert "foo\n" in out
-        assert "bar\n" in out
+            mock_logger.info.assert_called_with("foo")
 
     def test_attaching_returns_status_code(self):
         message = MagicMock()
