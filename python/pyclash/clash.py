@@ -214,12 +214,14 @@ class Job:
 
     POLLING_INTERVAL_SECONDS = 30
 
-    def __init__(self, job_config, name=None, gcloud=CloudSdk()):
+    def __init__(self, job_config, name=None, name_prefix=None, gcloud=CloudSdk()):
         self.gcloud = gcloud
         self.job_config = job_config
 
         if not name:
             self.name = "clash-job-{}".format(uuid.uuid1())
+            if name_prefix:
+                self.name = f"{name_prefix}-" + self.name
         else:
             self.name = name
 

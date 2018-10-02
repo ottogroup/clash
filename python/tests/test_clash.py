@@ -183,6 +183,14 @@ class TestJob:
 
         assert "clash-job-1234" == job.name
 
+    @patch("uuid.uuid1")
+    def test_creates_job_with_name_prefix(self, mock_uuid_call):
+        mock_uuid_call.return_value = 1234
+
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud, name_prefix="foo")
+
+        assert "foo-clash-job-1234" == job.name
+
     def test_running_a_job_runs_an_instance(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
