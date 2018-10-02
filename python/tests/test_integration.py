@@ -203,10 +203,14 @@ class TestJobIntegration:
 
     def test_passing_gcs_target_invokes_gsutil(self):
         with CloudSdkIntegrationStub() as gcloud:
+            script = """
+            touch /tmp/artifacts/foo
+            touch /tmp/models/bar
+            """
             job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
 
             job.run(
-                "",
+                script,
                 gcs_target={
                     "/tmp/artifacts": "mybucket",
                     "/tmp/models": "modelsbucket",
@@ -214,11 +218,27 @@ class TestJobIntegration:
             )
 
             assert (
-                b"gsutil.cp.-r./tmp/artifacts/*.gs://mybucket"
+                b"gsutil.cp.-r./tmp/artifacts/foo.gs://mybucket"
                 in gcloud.instances[0].logs()
             )
             assert (
-                b"gsutil.cp.-r./tmp/models/*.gs://modelsbucket"
+                b"gsutil.cp.-r./tmp/models/bar.gs://modelsbucket"
+                in gcloud.instances[0].logs()
+            )
+
+    def test_passing_gcs_target_without_artifacts_shows_error(self):
+        with CloudSdkIntegrationStub() as gcloud:
+            job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+
+            job.run(
+                "",
+                gcs_target={
+                    "/tmp/artifacts": "mybucket",
+                },
+            )
+
+            assert (
+                b"No artifacts found in /tmp/artifacts"
                 in gcloud.instances[0].logs()
             )
 
