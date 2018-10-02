@@ -79,7 +79,23 @@ class TestStackdriverLogsReader:
         self.job = MagicMock()
         self.logging_client = CloudSdkStub().get_logging()
 
-    def test_list_entries_with_correct_filter(self):
+    def test_list_entries_without_timestamp(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        self.job.name = "job-123"
+        self.job.job_config = TEST_JOB_CONFIG
+        EXPECTED_FILTER = f"""
+        resource.type="global"
+        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="job-123"
+        """
+
+        logs_reader.read_logs(self.job)
+
+        self.logging_client.list_entries.assert_called_with(
+            projects=[TEST_JOB_CONFIG["project_id"]], filter_=EXPECTED_FILTER
+        )
+
+    def test_create_filter_with_timestamp(self):
         logs_reader = clash.StackdriverLogsReader(self.logging_client)
         self.job.name = "job-123"
         self.job.job_config = TEST_JOB_CONFIG
@@ -87,11 +103,10 @@ class TestStackdriverLogsReader:
         logs_reader._delta = MagicMock(side_effect=lambda x: x)
         logs_reader._to_iso_format = MagicMock(side_effect=lambda x: 2 * x)
         EXPECTED_FILTER = f"""
-            resource.type="global"
-            logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
-            jsonPayload.instance.name="job-123"
-            timestamp >= "160"
-        """
+        resource.type="global"
+        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="job-123"
+        timestamp >= "160\""""
 
         logs_reader.read_logs(self.job, 20)
 

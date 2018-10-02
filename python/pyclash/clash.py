@@ -188,16 +188,19 @@ class StackdriverLogsReader:
     def _to_iso_format(self, local_time):
         return local_time.isoformat("T")
 
-    def read_logs(self, job, from_seconds_ago):
+    def read_logs(self, job, from_seconds_ago=None):
         project_id = job.job_config["project_id"]
-        local_time = self._now() - self._delta(from_seconds_ago)
-        iso_time = self._to_iso_format(local_time)
         FILTER = f"""
-            resource.type="global"
-            logName="projects/{project_id}/logs/gcplogs-docker-driver"
-            jsonPayload.instance.name="{job.name}"
-            timestamp >= "{iso_time}"
+        resource.type="global"
+        logName="projects/{project_id}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="{job.name}"
         """
+
+        if from_seconds_ago:
+            local_time = self._now() - self._delta(from_seconds_ago)
+            iso_time = self._to_iso_format(local_time)
+            FILTER += f"timestamp >= \"{iso_time}\""
+
         return [
             entry.payload["data"]
             for entry in self.logging_client.list_entries(
