@@ -16,13 +16,14 @@ class ClashOperator(BaseOperator):
         job_config,
         cmd=None,
         cmd_file=None,
+        name_prefix=None,
         env_vars={},
         gcs_target={},
         gcs_mounts={},
         *args,
         **kwargs
     ):
-        self.job = clash.Job(job_config=job_config)
+        self.job = clash.Job(job_config=job_config, name_prefix=name_prefix)
 
         self.cmd = cmd
         self.cmd_file = cmd_file
