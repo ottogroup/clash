@@ -199,7 +199,7 @@ class StackdriverLogsReader:
         if from_seconds_ago:
             local_time = self._now() - self._delta(from_seconds_ago)
             iso_time = self._to_iso_format(local_time)
-            FILTER += f"timestamp >= \"{iso_time}\""
+            FILTER += f'timestamp >= "{iso_time}"'
 
         return [
             entry.payload["data"]

@@ -230,17 +230,9 @@ class TestJobIntegration:
         with CloudSdkIntegrationStub() as gcloud:
             job = clash.Job(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
 
-            job.run(
-                "",
-                gcs_target={
-                    "/tmp/artifacts": "mybucket",
-                },
-            )
+            job.run("", gcs_target={"/tmp/artifacts": "mybucket"})
 
-            assert (
-                b"No artifacts found in /tmp/artifacts"
-                in gcloud.instances[0].logs()
-            )
+            assert b"No artifacts found in /tmp/artifacts" in gcloud.instances[0].logs()
 
     def test_passing_gcs_mount_invokes_gcsfuse(self):
         with CloudSdkIntegrationStub() as gcloud:
