@@ -27,7 +27,11 @@ bash /var/script.sh
 success=$?
 
 {% for directory in gcs_target %}
-gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
+if [ ! -z `ls {{ directory }}/*` ]; then
+  gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
+else
+  echo "No artifacts found in {{ directory }}"
+fi
 {% endfor %}
 set -e
 
