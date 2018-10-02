@@ -2,6 +2,7 @@ import logging
 from pyclash import clash
 
 from airflow.models import BaseOperator
+from airflow.exceptions import AirflowException
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.decorators import apply_defaults
 
@@ -12,8 +13,9 @@ class ClashOperator(BaseOperator):
     @apply_defaults
     def __init__(
         self,
-        script,
         job_config,
+        cmd=None,
+        cmd_file=None,
         env_vars={},
         gcs_target={},
         gcs_mounts={},
@@ -22,7 +24,8 @@ class ClashOperator(BaseOperator):
     ):
         self.job = clash.Job(job_config=job_config)
 
-        self.script = script
+        self.cmd = cmd
+        self.cmd_file = cmd_file
         self.env_vars = env_vars
         self.gcs_target = gcs_target
         self.gcs_mounts = gcs_mounts
@@ -31,12 +34,30 @@ class ClashOperator(BaseOperator):
 
     def execute(self, context):
         log.info("Running Clash Job...")
-        self.job.run(
-            self.script,
-            env_vars=self.env_vars,
-            gcs_target=self.gcs_target,
-            gcs_mounts=self.gcs_mounts,
-        )
+        if self.cmd_file:
+            self.job.run_file(
+                self.cmd_file,
+                env_vars=self.env_vars,
+                gcs_target=self.gcs_target,
+                gcs_mounts=self.gcs_mounts,
+            )
+        elif self.cmd:
+            self.job.run(
+                self.cmd,
+                env_vars=self.env_vars,
+                gcs_target=self.gcs_target,
+                gcs_mounts=self.gcs_mounts,
+            )
+        else:
+            raise AirflowException("No command was given")
+
+        logs_reader = clash.StackdriverLogsReader(self.job.gcloud.get_logging())
+        result = self.job.attach(logs_reader)
+
+        if result["status"] != 0:
+            raise AirflowException(
+                "The command failed with status code {}".format(result["status"])
+            )
 
 
 class ClashPlugin(AirflowPlugin):
