@@ -401,8 +401,9 @@ def run(script, detach, from_file, config, env, gcs_target, gcs_mount):
 
 
 @click.argument("job_name")
+@click.option("--config", default="clash.yml")
 @cli.command()
-def attach(job_name):
+def attach(job_name, config):
     try:
         job_config = load_config(config)
         job = Job(job_config, name=job_name)
