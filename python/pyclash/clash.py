@@ -173,24 +173,10 @@ utc = UTC()
 
 class StackdriverLogsReader:
 
-    STACKDRIVER_DELAY_SECONDS = 5
-
     def __init__(self, gcloud):
         self.logging_client = gcloud.get_logging()
         self.publisher = gcloud.get_publisher()
         self.subscriber = gcloud.get_subscriber()
-
-    def wait_for_logs_arrival(self):
-        time.sleep(StackdriverLogsReader.STACKDRIVER_DELAY_SECONDS)
-
-    def _now(self):
-        return datetime.datetime.now(utc)
-
-    def _delta(self, delta_time):
-        return datetime.timedelta(seconds=delta_time)
-
-    def _to_iso_format(self, local_time):
-        return local_time.isoformat("T")
 
     @staticmethod
     def default_logging_callback(message):
@@ -224,18 +210,13 @@ class StackdriverLogsReader:
         subscription.open(StackdriverLogsReader.default_logging_callback)
 
 
-    def read_logs(self, job, from_seconds_ago=None):
+    def read_logs(self, job):
         project_id = job.job_config["project_id"]
         FILTER = f"""
         resource.type="global"
         logName="projects/{project_id}/logs/gcplogs-docker-driver"
         jsonPayload.instance.name="{job.name}"
         """
-
-        if from_seconds_ago:
-            local_time = self._now() - self._delta(from_seconds_ago)
-            iso_time = self._to_iso_format(local_time)
-            FILTER += f'timestamp >= "{iso_time}"'
 
         return [
             entry.payload["data"]
