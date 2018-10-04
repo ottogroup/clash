@@ -10,8 +10,6 @@ from halo import Halo
 import sys
 import os
 from subprocess import call
-import datetime
-from datetime import tzinfo, timedelta
 from threading import Lock
 
 import jinja2
@@ -178,23 +176,6 @@ class MachineConfig:
         rendered["metadata"]["items"][0]["value"] = self.cloud_init.render()
 
         return rendered
-
-
-ZERO = datetime.timedelta(0)
-
-
-class UTC(tzinfo):
-    def utcoffset(self, dt):
-        return ZERO
-
-    def tzname(self, dt):
-        return "UTC"
-
-    def dst(self, dt):
-        return ZERO
-
-
-utc = UTC()
 
 
 class StackdriverLogsReader:
