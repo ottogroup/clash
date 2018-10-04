@@ -194,6 +194,19 @@ class StackdriverLogsReader:
         )
         self.logging_client.create_topic(logging_topic)
 
+        project_id = job.job_config["project_id"]
+        FILTER = f"""
+        resource.type="global"
+        logName="projects/{project_id}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="{job.name}"
+        """
+        sink = self.logging_client.sink(
+            job.name,
+            filter_=FILTER,
+            destination=f"pubsub.googleapis.com/{logging_topic}",
+        )
+        sink.create()
+
     def read_logs(self, job, from_seconds_ago=None):
         project_id = job.job_config["project_id"]
         FILTER = f"""

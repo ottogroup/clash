@@ -145,20 +145,33 @@ class TestStackdriverLogsReader:
 
         self.logging_client.create_topic.assert_called_with("myloggingtopic")
 
-    # def test_configuring_logging_creates_a_pubsub_sink(self):
-    #     logs_reader = clash.StackdriverLogsReader(self.logging_client)
-    #     self.job.name = "job-123"
-    #     self.job.job_config = TEST_JOB_CONFIG
-    #     self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "myloggingtopic"
-    #     EXPECTED_FILTER = f"""
-    #     resource.type="global"
-    #     logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
-    #     jsonPayload.instance.name="job-123"
-    #     """
+    def test_configuring_logging_configures_a_pubsub_sink(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        self.job.name = "job-123"
+        self.job.job_config = TEST_JOB_CONFIG
+        self.logging_client.topic_path.side_effect = lambda x, y: "myloggingtopic"
+        EXPECTED_FILTER = f"""
+        resource.type="global"
+        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="job-123"
+        """
 
-    #     logs_reader.configure_logging()
+        logs_reader.configure_logging(self.job)
 
-    #     self.gcloud.get_logging().sink.assert_called_with(job.name, filter_="", "myloggingtopic")
+        self.logging_client.sink.assert_called_with(
+            "job-123",
+            filter_=EXPECTED_FILTER,
+            destination="pubsub.googleapis.com/myloggingtopic",
+        )
+
+    def test_configuring_logging_creates_a_pubsub_sink(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        sink = MagicMock()
+        self.logging_client.sink.return_value = sink
+
+        logs_reader.configure_logging(self.job)
+
+        sink.create.assert_called()
 
 
 class TestMachineConfig:
