@@ -52,11 +52,8 @@ class ClashOperator(BaseOperator):
         else:
             raise AirflowException("No command was given")
 
-        result = self.job.attach()
-
-        logs_reader = clash.StackdriverLogsReader(self.job.gcloud.get_logging())
-        for log in logs_reader.read_logs(self.job):
-            logging.info(log)
+        with clash.StackdriverLogsReader(self.job):
+            result = self.job.attach()
 
         if result["status"] != 0:
             raise AirflowException(
