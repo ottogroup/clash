@@ -199,7 +199,7 @@ class StackdriverLogsReader:
         logName="projects/{self.job.job_config["project_id"]}/logs/gcplogs-docker-driver"
         jsonPayload.instance.name="{self.job.name}"
         """
-  
+
     def __enter__(self):
         self.logging_topic = self.publisher.topic_path(
             self.job.job_config["project_id"], self.job.name + "-logs"
