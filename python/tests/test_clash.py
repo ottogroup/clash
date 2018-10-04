@@ -72,68 +72,34 @@ class CloudSdkStub:
     def get_subscriber(self):
         return self.subscriber
 
-    def get_logging(self):
+    def get_logging(self, project=None):
         return self.logging_client
 
 
 class TestStackdriverLogsReader:
     def setup(self):
-        self.job = MagicMock()
         self.gcloud = CloudSdkStub()
 
-    def test_list_entries_without_timestamp(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
+        self.job = MagicMock()
         self.job.name = "job-123"
         self.job.job_config = TEST_JOB_CONFIG
-        EXPECTED_FILTER = f"""
-        resource.type="global"
-        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="job-123"
-        """
+        self.job.gcloud = self.gcloud
 
-        logs_reader.read_logs(self.job)
+    def test_initializing_logging_creates_a_topic_path_for_logging(self):
+        with clash.StackdriverLogsReader(self.job):
+            self.gcloud.get_publisher().topic_path.assert_called_with(
+                TEST_JOB_CONFIG["project_id"], "job-123-logs"
+            )
 
-        self.gcloud.get_logging().list_entries.assert_called_with(
-            projects=[TEST_JOB_CONFIG["project_id"]], filter_=EXPECTED_FILTER
-        )
-
-    def test_return_logs(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
-        Entry = namedtuple("Entry", "payload")
-        self.gcloud.get_logging().list_entries.return_value = [
-            Entry(payload={"data": "foo"}),
-            Entry(payload={"data": "bar"}),
-        ]
-
-        logs = logs_reader.read_logs(self.job)
-
-        assert ["foo", "bar"] == logs
-
-    def test_configuring_logging_creates_a_topic_path_for_logging(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
-        self.job.name = "job-123"
-        self.job.job_config = TEST_JOB_CONFIG
-
-        logs_reader.configure_real_time_logging(self.job)
-
-        self.gcloud.get_publisher().topic_path.assert_called_with(
-            TEST_JOB_CONFIG["project_id"], "job-123-logs"
-        )
-
-    def test_configuring_logging_creates_a_pubsub_topic(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
+    def test_initializing_logging_creates_a_pubsub_topic(self):
         self.gcloud.get_publisher().topic_path.side_effect = (
             lambda x, y: "myloggingtopic"
         )
 
-        logs_reader.configure_real_time_logging(self.job)
+        with clash.StackdriverLogsReader(self.job):
+            self.gcloud.get_publisher().create_topic.assert_called_with("myloggingtopic")
 
-        self.gcloud.get_publisher().create_topic.assert_called_with("myloggingtopic")
-
-    def test_configuring_logging_setups_a_pubsub_sink(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
-        self.job.name = "job-123"
-        self.job.job_config = TEST_JOB_CONFIG
+    def test_initializing_logging_setups_a_pubsub_sink(self):
         self.gcloud.get_publisher().topic_path.side_effect = (
             lambda x, y: "myloggingtopic"
         )
@@ -143,40 +109,64 @@ class TestStackdriverLogsReader:
         jsonPayload.instance.name="job-123"
         """
 
-        logs_reader.configure_real_time_logging(self.job)
+        with clash.StackdriverLogsReader(self.job):
+            self.gcloud.get_logging().sink.assert_called_with(
+                "job-123",
+                filter_=EXPECTED_FILTER,
+                destination="pubsub.googleapis.com/myloggingtopic",
+            )
 
-        self.gcloud.get_logging().sink.assert_called_with(
-            "job-123",
-            filter_=EXPECTED_FILTER,
-            destination="pubsub.googleapis.com/myloggingtopic",
-        )
-
-    def test_configuring_logging_creates_a_pubsub_sink(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
+    def test_initializing_logging_creates_a_pubsub_sink(self):
         sink = MagicMock()
         self.gcloud.get_logging().sink.return_value = sink
 
-        logs_reader.configure_real_time_logging(self.job)
+        with clash.StackdriverLogsReader(self.job):
+            sink.create.assert_called()
 
-        sink.create.assert_called()
+    def test_initializing_logging_deletes_sink(self):
+        sink = MagicMock()
+        self.gcloud.get_logging().sink.return_value = sink
 
-    def test_configuring_logging_creates_a_pubsub_subscription(self):
+        with clash.StackdriverLogsReader(self.job):
+            pass
+
+        sink.delete.assert_called()
+
+    def test_initializing_logging_deletes_topic(self):
+        self.gcloud.get_publisher().topic_path.side_effect = (
+            lambda x, y: "myloggingtopic"
+        )
+
+        with clash.StackdriverLogsReader(self.job):
+            pass
+
+        self.gcloud.get_publisher().delete_topic.assert_called_with("myloggingtopic")
+
+    def test_initializing_logging_deletes_subscription(self):
+        self.gcloud.get_subscriber().subscription_path.side_effect = (
+            lambda x, y: "myloggingsubscription"
+        )
+
+        with clash.StackdriverLogsReader(self.job):
+            pass
+
+        self.gcloud.get_subscriber().delete_subscription.assert_called_with("myloggingsubscription")
+
+    def test_initializing_logging_creates_a_pubsub_subscription(self):
         self.gcloud.get_publisher().topic_path.side_effect = (
             lambda x, y: "myloggingtopic"
         )
         self.gcloud.get_subscriber().subscription_path.side_effect = (
             lambda x, y: "mysubscription"
         )
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
 
-        logs_reader.configure_real_time_logging(self.job)
-
-        self.gcloud.get_subscriber().create_subscription.assert_called_with(
-            "mysubscription", "myloggingtopic"
-        )
-        self.gcloud.get_subscriber().subscribe.assert_called_with(
-            "mysubscription", clash.StackdriverLogsReader.default_logging_callback
-        )
+        with clash.StackdriverLogsReader(self.job):
+            self.gcloud.get_subscriber().create_subscription.assert_called_with(
+                "mysubscription", "myloggingtopic"
+            )
+            self.gcloud.get_subscriber().subscribe.assert_called_with(
+                "mysubscription", callback=clash.StackdriverLogsReader.default_logging_callback
+            )
 
 
 class TestMachineConfig:
@@ -369,20 +359,6 @@ class TestJob:
             job.attach()
 
         self.gcloud.get_subscriber().delete_subscription.assert_called()
-
-    def test_attaching_prints_logs(self):
-        message = MagicMock()
-        message.message = MagicMock(data='{"status": 0}')
-        self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
-        logs_reader = MagicMock()
-        logs_reader.read_logs.return_value = ["foo"]
-        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
-
-        with mock.patch("pyclash.clash.logger") as mock_logger:
-            job.attach(logs_reader)
-
-            mock_logger.info.assert_called_with("foo")
 
     def test_attaching_returns_status_code(self):
         message = MagicMock()
