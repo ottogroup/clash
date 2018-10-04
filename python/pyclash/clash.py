@@ -171,6 +171,7 @@ class UTC(tzinfo):
 
 utc = UTC()
 
+
 class StackdriverLogsReader:
 
     _logging_mutex = Lock()
@@ -218,7 +219,8 @@ class StackdriverLogsReader:
         )
         self.subscriber.create_subscription(self.subscription_path, self.logging_topic)
         self.subscriber.subscribe(
-            self.subscription_path, callback=StackdriverLogsReader.default_logging_callback
+            self.subscription_path,
+            callback=StackdriverLogsReader.default_logging_callback,
         )
         return self
 

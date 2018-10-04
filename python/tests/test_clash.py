@@ -97,7 +97,9 @@ class TestStackdriverLogsReader:
         )
 
         with clash.StackdriverLogsReader(self.job):
-            self.gcloud.get_publisher().create_topic.assert_called_with("myloggingtopic")
+            self.gcloud.get_publisher().create_topic.assert_called_with(
+                "myloggingtopic"
+            )
 
     def test_initializing_logging_setups_a_pubsub_sink(self):
         self.gcloud.get_publisher().topic_path.side_effect = (
@@ -150,7 +152,9 @@ class TestStackdriverLogsReader:
         with clash.StackdriverLogsReader(self.job):
             pass
 
-        self.gcloud.get_subscriber().delete_subscription.assert_called_with("myloggingsubscription")
+        self.gcloud.get_subscriber().delete_subscription.assert_called_with(
+            "myloggingsubscription"
+        )
 
     def test_initializing_logging_creates_a_pubsub_subscription(self):
         self.gcloud.get_publisher().topic_path.side_effect = (
@@ -165,7 +169,8 @@ class TestStackdriverLogsReader:
                 "mysubscription", "myloggingtopic"
             )
             self.gcloud.get_subscriber().subscribe.assert_called_with(
-                "mysubscription", callback=clash.StackdriverLogsReader.default_logging_callback
+                "mysubscription",
+                callback=clash.StackdriverLogsReader.default_logging_callback,
             )
 
 
