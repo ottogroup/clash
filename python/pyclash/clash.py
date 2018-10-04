@@ -188,6 +188,12 @@ class StackdriverLogsReader:
     def _to_iso_format(self, local_time):
         return local_time.isoformat("T")
 
+    def configure_logging(self, job):
+        logging_topic = self.logging_client.topic_path(
+            job.job_config["project_id"], job.name + "-logs"
+        )
+        self.logging_client.create_topic(logging_topic)
+
     def read_logs(self, job, from_seconds_ago=None):
         project_id = job.job_config["project_id"]
         FILTER = f"""
@@ -231,8 +237,8 @@ class Job:
         )
 
         client = self.gcloud.get_publisher()
-        topic_path = client.topic_path(self.job_config["project_id"], self.name)
-        client.create_topic(topic_path)
+        job_status_topic = client.topic_path(self.job_config["project_id"], self.name)
+        client.create_topic(job_status_topic)
 
         self.gcloud.get_compute_client().instances().insert(
             project=self.job_config["project_id"],

@@ -126,6 +126,40 @@ class TestStackdriverLogsReader:
 
         assert ["foo", "bar"] == logs
 
+    def test_configuring_logging_creates_a_topic_path_for_logging(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        self.job.name = "job-123"
+        self.job.job_config = TEST_JOB_CONFIG
+
+        logs_reader.configure_logging(self.job)
+
+        self.logging_client.topic_path.assert_called_with(
+            TEST_JOB_CONFIG["project_id"], "job-123-logs"
+        )
+
+    def test_configuring_logging_creates_a_pubsub_topic(self):
+        logs_reader = clash.StackdriverLogsReader(self.logging_client)
+        self.logging_client.topic_path.side_effect = lambda x, y: "myloggingtopic"
+
+        logs_reader.configure_logging(self.job)
+
+        self.logging_client.create_topic.assert_called_with("myloggingtopic")
+
+    # def test_configuring_logging_creates_a_pubsub_sink(self):
+    #     logs_reader = clash.StackdriverLogsReader(self.logging_client)
+    #     self.job.name = "job-123"
+    #     self.job.job_config = TEST_JOB_CONFIG
+    #     self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "myloggingtopic"
+    #     EXPECTED_FILTER = f"""
+    #     resource.type="global"
+    #     logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+    #     jsonPayload.instance.name="job-123"
+    #     """
+
+    #     logs_reader.configure_logging()
+
+    #     self.gcloud.get_logging().sink.assert_called_with(job.name, filter_="", "myloggingtopic")
+
 
 class TestMachineConfig:
     def setup(self):
