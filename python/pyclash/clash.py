@@ -12,6 +12,7 @@ import os
 from subprocess import call
 import datetime
 from datetime import tzinfo, timedelta
+from threading import Lock
 
 import jinja2
 import click
@@ -170,55 +171,61 @@ class UTC(tzinfo):
 
 utc = UTC()
 
-
 class StackdriverLogsReader:
-    def __init__(self, gcloud):
-        self.logging_client = gcloud.get_logging()
-        self.publisher = gcloud.get_publisher()
-        self.subscriber = gcloud.get_subscriber()
+
+    _logging_mutex = Lock()
+
+    def __init__(self, job):
+        self.job = job
+
+        self.logging_client = job.gcloud.get_logging(job.job_config["project_id"])
+        self.publisher = job.gcloud.get_publisher()
+        self.subscriber = job.gcloud.get_subscriber()
 
     @staticmethod
     def default_logging_callback(message):
-        logger.info(message.data)
-        message.ack()
+        StackdriverLogsReader._logging_mutex.acquire()
+        try:
+            payload = json.loads(message.data)["jsonPayload"]
+            if "data" in payload:
+                print(payload["data"])
+            message.ack()
+        finally:
+            StackdriverLogsReader._logging_mutex.release()
 
-    def _create_filter_for(self, job):
+    def _create_filter(self):
         return f"""
         resource.type="global"
-        logName="projects/{job.job_config["project_id"]}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="{job.name}"
+        logName="projects/{self.job.job_config["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="{self.job.name}"
         """
-
-    def configure_real_time_logging(self, job, callback=default_logging_callback):
-        logging_topic = self.publisher.topic_path(
-            job.job_config["project_id"], job.name + "-logs"
+  
+    def __enter__(self):
+        self.logging_topic = self.publisher.topic_path(
+            self.job.job_config["project_id"], self.job.name + "-logs"
         )
-        self.publisher.create_topic(logging_topic)
+        self.publisher.create_topic(self.logging_topic)
 
-        sink = self.logging_client.sink(
-            job.name,
-            filter_=self._create_filter_for(job),
-            destination=f"pubsub.googleapis.com/{logging_topic}",
+        self.sink = self.logging_client.sink(
+            self.job.name,
+            filter_=self._create_filter(),
+            destination=f"pubsub.googleapis.com/{self.logging_topic}",
         )
-        sink.create()
+        self.sink.create()
 
-        subscription_path = self.subscriber.subscription_path(
-            job.job_config["project_id"], job.name + "-logs"
+        self.subscription_path = self.subscriber.subscription_path(
+            self.job.job_config["project_id"], self.job.name + "-logs"
         )
-        self.subscriber.create_subscription(subscription_path, logging_topic)
+        self.subscriber.create_subscription(self.subscription_path, self.logging_topic)
         self.subscriber.subscribe(
-            subscription_path, StackdriverLogsReader.default_logging_callback
+            self.subscription_path, callback=StackdriverLogsReader.default_logging_callback
         )
+        return self
 
-    def read_logs(self, job):
-        project_id = job.job_config["project_id"]
-        return [
-            entry.payload["data"]
-            for entry in self.logging_client.list_entries(
-                projects=[project_id], filter_=self._create_filter_for(job)
-            )
-            if "data" in entry.payload
-        ]
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.sink.delete()
+        self.publisher.delete_topic(self.logging_topic)
+        self.subscriber.delete_subscription(self.subscription_path)
 
 
 class Job:
@@ -265,22 +272,15 @@ class Job:
             self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config
         ).to_dict()
 
-    def attach(self, logs_reader=None):
+    def attach(self):
         subscriber = self.gcloud.get_subscriber()
         subscription_path = self._create_subscription(subscriber)
 
         try:
             while True:
                 message = self._pull_message(subscriber, subscription_path)
-
-                if logs_reader:
-                    self._print_logs(logs_reader)
-
                 if message:
                     return json.loads(message.data)
-
-        except Exception as ex:
-            raise ex
         finally:
             subscriber.delete_subscription(subscription_path)
 
@@ -324,9 +324,8 @@ class Job:
 
 
 def attach_to(job):
-    logs_reader = StackdriverLogsReader(job.gcloud)
-    logs_reader.configure_real_time_logging(job)
-    result = job.attach()
+    with StackdriverLogsReader(job):
+        result = job.attach()
     sys.exit(result["status"])
 
 
