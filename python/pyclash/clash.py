@@ -172,7 +172,6 @@ utc = UTC()
 
 
 class StackdriverLogsReader:
-
     def __init__(self, gcloud):
         self.logging_client = gcloud.get_logging()
         self.publisher = gcloud.get_publisher()
@@ -207,9 +206,9 @@ class StackdriverLogsReader:
             job.job_config["project_id"], job.name + "-logs"
         )
         self.subscriber.create_subscription(subscription_path, logging_topic)
-        subscription = self.subscriber.subscribe(subscription_path)
-        subscription.open(StackdriverLogsReader.default_logging_callback)
-
+        self.subscriber.subscribe(
+            subscription_path, StackdriverLogsReader.default_logging_callback
+        )
 
     def read_logs(self, job):
         project_id = job.job_config["project_id"]
@@ -325,8 +324,9 @@ class Job:
 
 
 def attach_to(job):
-    logs_reader = StackdriverLogsReader(job.gcloud.get_logging())
-    result = job.attach(logs_reader)
+    logs_reader = StackdriverLogsReader(job.gcloud)
+    logs_reader.configure_real_time_logging(job)
+    result = job.attach()
     sys.exit(result["status"])
 
 
@@ -396,35 +396,27 @@ def run(script, detach, from_file, config, env, gcs_target, gcs_mount):
         gcs_bucket, mount_point = t.split(":")
         gcs_mounts[gcs_bucket] = mount_point
 
-    try:
-        job_config = load_config(config)
-        job = Job(job_config)
-        with Halo(text="Creating job", spinner="dots") as spinner:
-            if from_file:
-                job.run_file(script, env_vars, gcs_targets, gcs_mounts)
-            else:
-                job.run(script, env_vars, gcs_targets, gcs_mounts)
-
-        if not detach:
-            attach_to(job)
+    job_config = load_config(config)
+    job = Job(job_config)
+    with Halo(text="Creating job", spinner="dots") as spinner:
+        if from_file:
+            job.run_file(script, env_vars, gcs_targets, gcs_mounts)
         else:
-            print(job.name)
-    except Exception as ex:
-        logging.error(ex)
-        sys.exit(1)
+            job.run(script, env_vars, gcs_targets, gcs_mounts)
+
+    if not detach:
+        attach_to(job)
+    else:
+        print(job.name)
 
 
 @click.argument("job_name")
 @click.option("--config", default="clash.yml")
 @cli.command()
 def attach(job_name, config):
-    try:
-        job_config = load_config(config)
-        job = Job(job_config, name=job_name)
-        attach_to(job)
-    except Exception as ex:
-        logging.error(ex)
-        sys.exit(1)
+    job_config = load_config(config)
+    job = Job(job_config, name=job_name)
+    attach_to(job)
 
 
 if __name__ == "__main__":
