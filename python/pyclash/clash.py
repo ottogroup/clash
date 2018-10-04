@@ -64,7 +64,9 @@ class CloudSdk:
     def get_subscriber(self):
         return pubsub.SubscriberClient()
 
-    def get_logging(self):
+    def get_logging(self, project=None):
+        if project:
+            return glogging.Client(project=project)
         return glogging.Client()
 
 
@@ -173,8 +175,10 @@ class StackdriverLogsReader:
 
     STACKDRIVER_DELAY_SECONDS = 5
 
-    def __init__(self, logging_client):
-        self.logging_client = logging_client
+    def __init__(self, gcloud):
+        self.logging_client = gcloud.get_logging()
+        self.publisher = gcloud.get_publisher()
+        self.subscriber = gcloud.get_subscriber()
 
     def wait_for_logs_arrival(self):
         time.sleep(StackdriverLogsReader.STACKDRIVER_DELAY_SECONDS)
@@ -188,11 +192,16 @@ class StackdriverLogsReader:
     def _to_iso_format(self, local_time):
         return local_time.isoformat("T")
 
-    def configure_logging(self, job):
-        logging_topic = self.logging_client.topic_path(
+    @staticmethod
+    def default_logging_callback(message):
+        logger.info(message.data)
+        message.ack()
+
+    def configure_logging(self, job, callback=default_logging_callback):
+        logging_topic = self.publisher.topic_path(
             job.job_config["project_id"], job.name + "-logs"
         )
-        self.logging_client.create_topic(logging_topic)
+        self.publisher.create_topic(logging_topic)
 
         project_id = job.job_config["project_id"]
         FILTER = f"""
@@ -206,6 +215,14 @@ class StackdriverLogsReader:
             destination=f"pubsub.googleapis.com/{logging_topic}",
         )
         sink.create()
+
+        subscription_path = self.subscriber.subscription_path(
+            job.job_config["project_id"], job.name + "-logs"
+        )
+        self.subscriber.create_subscription(subscription_path, logging_topic)
+        subscription = self.subscriber.subscribe(subscription_path)
+        subscription.open(StackdriverLogsReader.default_logging_callback)
+
 
     def read_logs(self, job, from_seconds_ago=None):
         project_id = job.job_config["project_id"]
