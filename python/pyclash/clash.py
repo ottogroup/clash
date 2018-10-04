@@ -43,6 +43,7 @@ DEFAULT_JOB_CONFIG = {
 
 
 class MemoryCache:
+    """ Having this class avoids dependency issues with the compute engine client"""
     _CACHE = {}
 
     def get(self, url):
@@ -53,6 +54,8 @@ class MemoryCache:
 
 
 class CloudSdk:
+    """ Provides access to the GCP services (e.g. logging, compute engine, etc.) """
+
     def __init__(self):
         pass
 
@@ -72,6 +75,11 @@ class CloudSdk:
 
 
 class CloudInitConfig:
+    """
+    This class provides means to create a configuration for cloud-init.
+
+    (e.g. one which starts a Docker container on the target machine)
+    """
     def __init__(
         self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}
     ):
@@ -88,6 +96,12 @@ class CloudInitConfig:
         self.gcs_mounts = gcs_mounts
 
     def render(self):
+        """
+        Renders the cloud-init configuration
+
+        Returns:
+            string: a cloud-init configuration file
+        """
         clash_runner_script = self.template_env.get_template(
             "clash_runner.sh.j2"
         ).render(
@@ -112,6 +126,11 @@ class CloudInitConfig:
 
 
 class MachineConfig:
+    """
+    This class provides methods for creating a machine configuration
+    for the Google Compute Engine.
+    """
+
     def __init__(self, compute, vm_name, cloud_init, job_config):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
@@ -124,6 +143,12 @@ class MachineConfig:
         self.job_config = job_config
 
     def to_dict(self):
+        """
+            Creates the machine configuration
+
+            Returns:
+                dict: the configuration
+        """
         image_response = (
             self.compute.images()
             .getFromFamily(
@@ -173,6 +198,9 @@ utc = UTC()
 
 
 class StackdriverLogsReader:
+    """
+    Prints logs of a job to stdout.
+    """
 
     _logging_mutex = Lock()
 
@@ -231,6 +259,9 @@ class StackdriverLogsReader:
 
 
 class Job:
+    """
+    This class creates Clash-jobs and runs them on the Google Compute Engine (GCE).
+    """
 
     POLLING_INTERVAL_SECONDS = 30
 
@@ -246,6 +277,15 @@ class Job:
             self.name = name
 
     def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
+        """
+        Runs a script which is given as a string.
+
+        Args:
+            script (string): A Bash script which will be executed on GCE.
+            env_vars (dict): Environment variables which can be used by the script.
+            gcs_target (dict): Files which will be copied to GCS when the script is done.
+            gcs_mounts (dict): Buckets which will be mounted using gcsfuse (if available).
+        """
         machine_config = self._create_machine_config(
             script, env_vars, gcs_target, gcs_mounts
         )
@@ -261,6 +301,15 @@ class Job:
         ).execute()
 
     def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}):
+        """
+        Runs a script which is given as a file.
+
+        Args:
+            script_file (string): Path to a Bash script which will be executed on GCE.
+            env_vars (dict): Environment variables which can be used by the script.
+            gcs_target (dict): Files which will be copied to GCS when the script is done.
+            gcs_mounts (dict): Buckets which will be mounted using gcsfuse (if available).
+        """
         with open(script_file, "r") as f:
             script = f.read()
         self.run(script, env_vars, gcs_target)
@@ -275,6 +324,9 @@ class Job:
         ).to_dict()
 
     def attach(self):
+        """
+        Blocks until the job terminates.
+        """
         subscriber = self.gcloud.get_subscriber()
         subscription_path = self._create_subscription(subscriber)
 
