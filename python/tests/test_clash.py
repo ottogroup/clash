@@ -97,25 +97,6 @@ class TestStackdriverLogsReader:
             projects=[TEST_JOB_CONFIG["project_id"]], filter_=EXPECTED_FILTER
         )
 
-    def test_create_filter_with_timestamp(self):
-        logs_reader = clash.StackdriverLogsReader(self.gcloud)
-        self.job.name = "job-123"
-        self.job.job_config = TEST_JOB_CONFIG
-        logs_reader._now = MagicMock(return_value=100)
-        logs_reader._delta = MagicMock(side_effect=lambda x: x)
-        logs_reader._to_iso_format = MagicMock(side_effect=lambda x: 2 * x)
-        EXPECTED_FILTER = f"""
-        resource.type="global"
-        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="job-123"
-        timestamp >= "160\""""
-
-        logs_reader.read_logs(self.job, 20)
-
-        self.gcloud.get_logging().list_entries.assert_called_with(
-            projects=[TEST_JOB_CONFIG["project_id"]], filter_=EXPECTED_FILTER
-        )
-
     def test_return_logs(self):
         logs_reader = clash.StackdriverLogsReader(self.gcloud)
         Entry = namedtuple("Entry", "payload")
@@ -124,7 +105,7 @@ class TestStackdriverLogsReader:
             Entry(payload={"data": "bar"}),
         ]
 
-        logs = logs_reader.read_logs(self.job, 20)
+        logs = logs_reader.read_logs(self.job)
 
         assert ["foo", "bar"] == logs
 
