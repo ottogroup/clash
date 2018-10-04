@@ -114,7 +114,7 @@ class TestStackdriverLogsReader:
         self.job.name = "job-123"
         self.job.job_config = TEST_JOB_CONFIG
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         self.gcloud.get_publisher().topic_path.assert_called_with(
             TEST_JOB_CONFIG["project_id"], "job-123-logs"
@@ -124,7 +124,7 @@ class TestStackdriverLogsReader:
         logs_reader = clash.StackdriverLogsReader(self.gcloud)
         self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "myloggingtopic"
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         self.gcloud.get_publisher().create_topic.assert_called_with("myloggingtopic")
 
@@ -139,7 +139,7 @@ class TestStackdriverLogsReader:
         jsonPayload.instance.name="job-123"
         """
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         self.gcloud.get_logging().sink.assert_called_with(
             "job-123",
@@ -152,7 +152,7 @@ class TestStackdriverLogsReader:
         sink = MagicMock()
         self.gcloud.get_logging().sink.return_value = sink
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         sink.create.assert_called()
 
@@ -161,7 +161,7 @@ class TestStackdriverLogsReader:
         self.gcloud.get_subscriber().subscription_path.side_effect = lambda x, y: "mysubscription"
         logs_reader = clash.StackdriverLogsReader(self.gcloud)
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         self.gcloud.get_subscriber().create_subscription.assert_called_with(
             "mysubscription", "myloggingtopic"
@@ -173,7 +173,7 @@ class TestStackdriverLogsReader:
         subscription = MagicMock()
         self.gcloud.get_subscriber().subscribe.return_value = subscription
 
-        logs_reader.configure_logging(self.job)
+        logs_reader.configure_real_time_logging(self.job)
 
         subscription.open.assert_called_with(clash.StackdriverLogsReader.default_logging_callback)
 

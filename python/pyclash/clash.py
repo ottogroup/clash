@@ -183,21 +183,22 @@ class StackdriverLogsReader:
         logger.info(message.data)
         message.ack()
 
-    def configure_logging(self, job, callback=default_logging_callback):
+    def _create_filter_for(self, job):
+        return f"""
+        resource.type="global"
+        logName="projects/{job.job_config["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name="{job.name}"
+        """
+
+    def configure_real_time_logging(self, job, callback=default_logging_callback):
         logging_topic = self.publisher.topic_path(
             job.job_config["project_id"], job.name + "-logs"
         )
         self.publisher.create_topic(logging_topic)
 
-        project_id = job.job_config["project_id"]
-        FILTER = f"""
-        resource.type="global"
-        logName="projects/{project_id}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="{job.name}"
-        """
         sink = self.logging_client.sink(
             job.name,
-            filter_=FILTER,
+            filter_=self._create_filter_for(job),
             destination=f"pubsub.googleapis.com/{logging_topic}",
         )
         sink.create()
@@ -212,16 +213,10 @@ class StackdriverLogsReader:
 
     def read_logs(self, job):
         project_id = job.job_config["project_id"]
-        FILTER = f"""
-        resource.type="global"
-        logName="projects/{project_id}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="{job.name}"
-        """
-
         return [
             entry.payload["data"]
             for entry in self.logging_client.list_entries(
-                projects=[project_id], filter_=FILTER
+                projects=[project_id], filter_=self._create_filter_for(job)
             )
             if "data" in entry.payload
         ]
