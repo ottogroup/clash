@@ -164,14 +164,17 @@ class TestStackdriverLogsReader:
             lambda x, y: "mysubscription"
         )
 
-        with clash.StackdriverLogsReader(self.job):
-            self.gcloud.get_subscriber().create_subscription.assert_called_with(
-                "mysubscription", "myloggingtopic"
-            )
-            self.gcloud.get_subscriber().subscribe.assert_called_with(
-                "mysubscription",
-                callback=clash.StackdriverLogsReader.default_logging_callback,
-            )
+        callback = MagicMock()
+        with patch.object(
+            clash.StackdriverLogsReader, "_create_callback", lambda x: callback
+        ):
+            with clash.StackdriverLogsReader(self.job):
+                self.gcloud.get_subscriber().create_subscription.assert_called_with(
+                    "mysubscription", "myloggingtopic"
+                )
+                self.gcloud.get_subscriber().subscribe.assert_called_with(
+                    "mysubscription", callback=callback
+                )
 
 
 class TestMachineConfig:
