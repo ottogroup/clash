@@ -1,4 +1,5 @@
 # -*- coding: future_fstrings -*-
+from __future__ import print_function
 import argparse
 import logging
 import uuid
@@ -42,6 +43,7 @@ DEFAULT_JOB_CONFIG = {
 
 class MemoryCache:
     """ Having this class avoids dependency issues with the compute engine client"""
+
     _CACHE = {}
 
     def get(self, url):
@@ -78,6 +80,7 @@ class CloudInitConfig:
 
     (e.g. one which starts a Docker container on the target machine)
     """
+
     def __init__(
         self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}
     ):
@@ -180,28 +183,36 @@ class MachineConfig:
 
 class StackdriverLogsReader:
     """
-    Prints logs of a job to stdout.
+    Reads logs of a job.
     """
 
-    _logging_mutex = Lock()
-
-    def __init__(self, job):
+    def __init__(self, job, log_func=logger.info):
+        """
+        Args:
+            job: a job
+            log_func (string -> ): function which processes a log entry
+        """
         self.job = job
 
         self.logging_client = job.gcloud.get_logging(job.job_config["project_id"])
         self.publisher = job.gcloud.get_publisher()
         self.subscriber = job.gcloud.get_subscriber()
+        self.log_func = log_func
 
-    @staticmethod
-    def default_logging_callback(message):
-        StackdriverLogsReader._logging_mutex.acquire()
-        try:
-            payload = json.loads(message.data)["jsonPayload"]
-            if "data" in payload:
-                print(payload["data"])
-            message.ack()
-        finally:
-            StackdriverLogsReader._logging_mutex.release()
+    def _create_callback(self):
+        logging_mutex = Lock()
+
+        def logging_callback(message):
+            logging_mutex.acquire()
+            try:
+                payload = json.loads(message.data)["jsonPayload"]
+                if "data" in payload:
+                    self.log_func(payload["data"])
+                message.ack()
+            finally:
+                logging_mutex.release()
+
+        return logging_callback
 
     def _create_filter(self):
         return f"""
@@ -228,8 +239,7 @@ class StackdriverLogsReader:
         )
         self.subscriber.create_subscription(self.subscription_path, self.logging_topic)
         self.subscriber.subscribe(
-            self.subscription_path,
-            callback=StackdriverLogsReader.default_logging_callback,
+            self.subscription_path, callback=self._create_callback()
         )
         return self
 
@@ -359,7 +369,7 @@ class Job:
 
 
 def attach_to(job):
-    with StackdriverLogsReader(job):
+    with StackdriverLogsReader(job, log_func=print):
         result = job.attach()
     sys.exit(result["status"])
 
