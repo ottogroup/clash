@@ -52,7 +52,7 @@ class ClashOperator(BaseOperator):
         else:
             raise AirflowException("No command was given")
 
-        with clash.StackdriverLogsReader(self.job):
+        with clash.StackdriverLogsReader(self.job, log_func=self.log.info):
             result = self.job.attach()
 
         if result["status"] != 0:
