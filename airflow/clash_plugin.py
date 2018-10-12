@@ -10,6 +10,8 @@ log = logging.getLogger(__name__)
 
 
 class ClashOperator(BaseOperator):
+    template_fields = ('cmd', 'cmd_file', 'env')
+
     @apply_defaults
     def __init__(
         self,
