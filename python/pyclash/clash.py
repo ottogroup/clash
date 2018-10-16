@@ -25,6 +25,7 @@ DEFAULT_JOB_CONFIG = {
     "project_id": "my-gcp-project",
     "image": "google/cloud-sdk",
     "privileged": False,
+    "preemptible": False,
     "zone": "europe-west1-b",
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
@@ -173,6 +174,7 @@ class MachineConfig:
                 region=self.job_config["region"],
                 scopes=self.job_config["scopes"],
                 subnetwork=self.job_config["subnetwork"],
+                preemptible=self.job_config["preemptible"],
             )
         )
 

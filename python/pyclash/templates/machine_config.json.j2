@@ -34,7 +34,8 @@
     }
   ],
   "scheduling": {
-    "automaticRestart": true
+    "automaticRestart": true,
+    "preemptible": {% if preemptible %}true{% else %}false{% endif %}
   },
   "serviceAccounts": [
     {
