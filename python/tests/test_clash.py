@@ -222,6 +222,15 @@ class TestMachineConfig:
             TEST_JOB_CONFIG["machine_type"],
         )
 
+    def test_automatic_restart_is_always_false(self):
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, TEST_JOB_CONFIG
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert not machine_config["scheduling"]["automaticRestart"]
+
     def test_config_contains_preemptible_flag_if_set_true(self):
         job_config = copy.deepcopy(TEST_JOB_CONFIG)
         job_config["preemptible"] = True
