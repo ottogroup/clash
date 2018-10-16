@@ -1,5 +1,6 @@
 # -*- coding: future_fstrings -*-
 import mock
+import copy
 from mock import patch, MagicMock
 from collections import namedtuple
 import pytest
@@ -28,6 +29,7 @@ TEST_JOB_CONFIG = {
     "image": "test-cloudsdk:latest",
     "zone": "europe-west1-b",
     "privileged": False,
+    "preemptible": False,
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
     "machine_type": "n1-standard-1",
@@ -219,6 +221,28 @@ class TestMachineConfig:
             TEST_JOB_CONFIG["zone"],
             TEST_JOB_CONFIG["machine_type"],
         )
+
+    def test_config_contains_preemptible_flag_if_set_true(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        job_config["preemptible"] = True
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config["scheduling"]["preemptible"]
+
+    def test_config_contains_preemptible_flag_if_set_false(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        job_config["preemptible"] = False
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert not machine_config["scheduling"]["preemptible"]
 
 
 class TestJob:
