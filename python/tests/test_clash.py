@@ -416,58 +416,51 @@ class TestJob:
 class TestJobGroup:
     def setup(self):
         self.gcloud = CloudSdkStub()
-
-    def test_creates_job_group(self):
-        job_factory = clash.JobFactory(job_config=TEST_JOB_CONFIG, gcloud=self.gcloud)
-        group = clash.JobGroup(name="mygroup", job_factory=job_factory)
-
-        assert "mygroup" == group.name
-
-    def test_runs_a_single_job(self):
-        test_job = MagicMock()
-        test_factory = MagicMock()
-        test_factory.create.return_value = test_job
-        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
-        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
-
-        group.run()
-
-        test_factory.create.assert_called_with(name_prefix=f"mygroup-0")
-        test_job.run.assert_called_with(
-            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
-        )
-
-    def test_runs_multiple_jobs(self):
-        test_job_one = MagicMock()
-        test_job_two = MagicMock()
-        test_factory = MagicMock()
+        self.test_job_one = MagicMock()
+        self.test_job_two = MagicMock()
+        self.test_factory = MagicMock()
         calls = {"create_job": 0}
 
         def create_job(name_prefix):
             if calls["create_job"] < 1:
                 calls["create_job"] += 1
-                return test_job_one
-            return test_job_two
+                return self.test_job_one
+            return self.test_job_two
 
-        test_factory.create.side_effect = create_job
-        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        self.test_factory.create.side_effect = create_job
+
+    def test_creates_job_group(self):
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
+
+        assert "mygroup" == group.name
+
+    def test_runs_a_single_job(self):
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
+        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+
+        group.run()
+
+        self.test_factory.create.assert_called_with(name_prefix=f"mygroup-0")
+        self.test_job_one.run.assert_called_with(
+            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
+        )
+
+    def test_runs_multiple_jobs(self):
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(clash.JobRuntimeSpec(script="echo hello"))
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
 
         group.run()
 
-        test_job_one.run.assert_called_with(
+        self.test_job_one.run.assert_called_with(
             script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
         )
-        test_job_two.run.assert_called_with(
+        self.test_job_two.run.assert_called_with(
             script="echo world", env_vars={}, gcs_mounts={}, gcs_target={}
         )
 
     def test_passes_runtime_spec_to_job(self):
-        test_job = MagicMock()
-        test_factory = MagicMock()
-        test_factory.create.return_value = test_job
-        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(
             clash.JobRuntimeSpec(
                 script="_",
@@ -479,7 +472,7 @@ class TestJobGroup:
 
         group.run()
 
-        test_job.run.assert_called_with(
+        self.test_job_one.run.assert_called_with(
             script="_",
             env_vars={"FOO": "bar"},
             gcs_mounts={"bucket_name": "mount_dir"},
@@ -487,23 +480,11 @@ class TestJobGroup:
         )
 
     def test_attach_returns_true_when_all_jobs_have_finished_sucessfully(self):
-        test_job_one = MagicMock()
-        test_job_one.has_finished.return_value = True
-        test_job_one.get_status_code.return_value = 0
-        test_job_two = MagicMock()
-        test_job_two.has_finished.return_value = True
-        test_job_two.get_status_code.return_value = 0
-        test_factory = MagicMock()
-        calls = {"create_job": 0}
-
-        def create_job(name_prefix):
-            if calls["create_job"] < 1:
-                calls["create_job"] += 1
-                return test_job_one
-            return test_job_two
-
-        test_factory.create.side_effect = create_job
-        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        self.test_job_one.has_finished.return_value = True
+        self.test_job_one.get_status_code.return_value = 0
+        self.test_job_two.has_finished.return_value = True
+        self.test_job_two.get_status_code.return_value = 0
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(clash.JobRuntimeSpec(script="echo hello"))
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
         group.run()
@@ -513,23 +494,11 @@ class TestJobGroup:
         assert result
 
     def test_attach_returns_false_when_a_job_has_failed(self):
-        test_job_one = MagicMock()
-        test_job_one.has_finished.return_value = True
-        test_job_one.get_status_code.return_value = 0
-        test_job_two = MagicMock()
-        test_job_two.has_finished.return_value = True
-        test_job_two.get_status_code.return_value = 1
-        test_factory = MagicMock()
-        calls = {"create_job": 0}
-
-        def create_job(name_prefix):
-            if calls["create_job"] < 1:
-                calls["create_job"] += 1
-                return test_job_one
-            return test_job_two
-
-        test_factory.create.side_effect = create_job
-        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        self.test_job_one.has_finished.return_value = True
+        self.test_job_one.get_status_code.return_value = 0
+        self.test_job_two.has_finished.return_value = True
+        self.test_job_two.get_status_code.return_value = 1
+        group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(clash.JobRuntimeSpec(script="echo hello"))
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
         group.run()
