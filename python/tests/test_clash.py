@@ -486,6 +486,58 @@ class TestJobGroup:
             gcs_target={"artifacts_dir", "bucket_name"},
         )
 
+    def test_attach_returns_true_when_all_jobs_have_finished_sucessfully(self):
+        test_job_one = MagicMock()
+        test_job_one.has_finished.return_value = True
+        test_job_one.get_status_code.return_value = 0
+        test_job_two = MagicMock()
+        test_job_two.has_finished.return_value = True
+        test_job_two.get_status_code.return_value = 0
+        test_factory = MagicMock()
+        calls = {"create_job": 0}
+
+        def create_job(name_prefix):
+            if calls["create_job"] < 1:
+                calls["create_job"] += 1
+                return test_job_one
+            return test_job_two
+
+        test_factory.create.side_effect = create_job
+        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+        group.run()
+
+        result = group.attach()
+
+        assert result
+
+    def test_attach_returns_false_when_a_job_has_failed(self):
+        test_job_one = MagicMock()
+        test_job_one.has_finished.return_value = True
+        test_job_one.get_status_code.return_value = 0
+        test_job_two = MagicMock()
+        test_job_two.has_finished.return_value = True
+        test_job_two.get_status_code.return_value = 1
+        test_factory = MagicMock()
+        calls = {"create_job": 0}
+
+        def create_job(name_prefix):
+            if calls["create_job"] < 1:
+                calls["create_job"] += 1
+                return test_job_one
+            return test_job_two
+
+        test_factory.create.side_effect = create_job
+        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+        group.run()
+
+        result = group.attach()
+
+        assert not result
+
 
 def test_load_config():
     os.environ["MACHINE_TYPE"] = "strongmachine"

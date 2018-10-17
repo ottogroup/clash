@@ -275,7 +275,8 @@ class JobGroup:
     def __init__(self, name, job_factory):
         self.name = name
         self.job_factory = job_factory
-        gelf.job_specs = []
+        self.job_specs = []
+        self.running_jobs = []
 
     def add_job(self, runtime_spec):
         self.job_specs.append(runtime_spec)
@@ -289,9 +290,16 @@ class JobGroup:
                 gcs_mounts=spec.gcs_mounts,
                 gcs_target=spec.gcs_target,
             )
+            self.running_jobs.append(job)
 
     def attach(self):
-        pass
+        jobs_status_codes = {}
+        while not len(jobs_status_codes) == len(self.running_jobs):
+            for job_id, job in enumerate(self.running_jobs):
+                if job.has_finished():
+                    jobs_status_codes[job_id] = job.get_status_code()
+
+        return all(map(lambda code: code == 0, jobs_status_codes.values()))
 
 
 class Job:
@@ -373,6 +381,12 @@ class Job:
                     return json.loads(message.data)
         finally:
             subscriber.delete_subscription(subscription_path)
+
+    def has_finished(self):
+        return False
+
+    def get_status_code(self):
+        return None
 
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(
