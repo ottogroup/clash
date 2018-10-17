@@ -189,17 +189,17 @@ class StackdriverLogsReader:
     Reads logs of a job.
     """
 
-    def __init__(self, job, log_func=logger.info):
+    def __init__(self, job_or_group, log_func=logger.info):
         """
         Args:
-            job: a job
+            job_or_group: a job or a job-group
             log_func (string -> ): function which processes a log entry
         """
-        self.job = job
+        self.job_or_group = job_or_group
 
-        self.logging_client = job.gcloud.get_logging(job.job_config["project_id"])
-        self.publisher = job.gcloud.get_publisher()
-        self.subscriber = job.gcloud.get_subscriber()
+        self.logging_client = job_or_group.gcloud.get_logging(job_or_group.job_config["project_id"])
+        self.publisher = job_or_group.gcloud.get_publisher()
+        self.subscriber = job_or_group.gcloud.get_subscriber()
         self.log_func = log_func
 
     def _create_callback(self):
@@ -218,27 +218,28 @@ class StackdriverLogsReader:
         return logging_callback
 
     def _create_filter(self):
+        log_restriction_char = ":" if self.job_or_group.is_group() else "="
         return f"""
         resource.type="global"
-        logName="projects/{self.job.job_config["project_id"]}/logs/gcplogs-docker-driver"
-        jsonPayload.instance.name="{self.job.name}"
+        logName="projects/{self.job_or_group.job_config["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name{log_restriction_char}"{self.job_or_group.name}"
         """
 
     def __enter__(self):
         self.logging_topic = self.publisher.topic_path(
-            self.job.job_config["project_id"], self.job.name + "-logs"
+            self.job_or_group.job_config["project_id"], self.job_or_group.name + "-logs"
         )
         self.publisher.create_topic(self.logging_topic)
 
         self.sink = self.logging_client.sink(
-            self.job.name,
+            self.job_or_group.name,
             filter_=self._create_filter(),
             destination=f"pubsub.googleapis.com/{self.logging_topic}",
         )
         self.sink.create()
 
         self.subscription_path = self.subscriber.subscription_path(
-            self.job.job_config["project_id"], self.job.name + "-logs"
+            self.job_or_group.job_config["project_id"], self.job_or_group.name + "-logs"
         )
         self.subscriber.create_subscription(self.subscription_path, self.logging_topic)
         self.subscriber.subscribe(
@@ -275,6 +276,8 @@ class JobGroup:
     def __init__(self, name, job_factory):
         self.name = name
         self.job_factory = job_factory
+        self.job_config = job_factory.job_config
+        self.gcloud = job_factory.gcloud
         self.job_specs = []
         self.running_jobs = []
 
@@ -304,6 +307,9 @@ class JobGroup:
             time.sleep(1)
 
         return all(map(lambda code: code == 0, jobs_status_codes))
+
+    def is_group(self):
+        return True
 
 
 class Job:
@@ -437,6 +443,9 @@ class Job:
         logs = logs_reader.read_logs(self, Job.POLLING_INTERVAL_SECONDS)
         for entry in logs:
             logger.info(entry)
+
+    def is_group(self):
+        return False
 
 
 def attach_to(job):
