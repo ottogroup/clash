@@ -378,6 +378,9 @@ class Job:
         ).to_dict()
 
     def on_finish(self, callback):
+        if not self.running:
+            raise ValueError("The job is not running")
+
         def pubsub_callback(message):
             data = json.loads(message.data)
             callback(data["status_code"])
