@@ -5,6 +5,7 @@ set -e
 function __trap_clean_up {
   set +e
   gcloud pubsub topics delete {{ vm_name }} --quiet &>> /tmp/gcloud.log
+  gcloud pubsub subscriptions delete {{ vm_name }} --quiet &>> /tmp/gcloud.log
   gcloud compute instances delete {{ vm_name }} --quiet --zone {{ zone }} &>> /tmp/gcloud.log
 }
 
