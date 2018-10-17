@@ -294,10 +294,14 @@ class JobGroup:
 
     def attach(self):
         jobs_status_codes = {}
+        def assign_status_code(job_id, status_code):
+            jobs_status_codes[job_id] = status_code
+
+        for job_id, job in enumerate(self.running_jobs):
+            job.on_finish(lambda status_code: assign_status_code(job_id, status_code))
+
         while not len(jobs_status_codes) == len(self.running_jobs):
-            for job_id, job in enumerate(self.running_jobs):
-                if job.has_finished():
-                    jobs_status_codes[job_id] = job.get_status_code()
+            time.sleep(1)
 
         return all(map(lambda code: code == 0, jobs_status_codes.values()))
 
@@ -312,6 +316,7 @@ class Job:
     def __init__(self, job_config, name=None, name_prefix=None, gcloud=CloudSdk()):
         self.gcloud = gcloud
         self.job_config = job_config
+        self.running = False
 
         if not name:
             self.name = "clash-job-{}".format(uuid.uuid1())
@@ -334,15 +339,20 @@ class Job:
             script, env_vars, gcs_target, gcs_mounts
         )
 
-        client = self.gcloud.get_publisher()
-        job_status_topic = client.topic_path(self.job_config["project_id"], self.name)
-        client.create_topic(job_status_topic)
+        publisher = self.gcloud.get_publisher()
+        job_status_topic = publisher.topic_path(self.job_config["project_id"], self.name)
+        publisher.create_topic(job_status_topic)
+
+        self.subscriber = self.gcloud.get_subscriber()
+        self.subscription_path = self._create_subscription(self.subscriber)
 
         self.gcloud.get_compute_client().instances().insert(
             project=self.job_config["project_id"],
             zone=self.job_config["zone"],
             body=machine_config,
         ).execute()
+
+        self.running = True
 
     def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}):
         """
@@ -367,26 +377,25 @@ class Job:
             self.gcloud.get_compute_client(), self.name, cloud_init, self.job_config
         ).to_dict()
 
+    def on_finish(self, callback):
+        def pubsub_callback(message):
+            data = json.loads(message.data)
+            callback(data["status_code"])
+            message.ack()
+
+        self.subscriber.subscribe(self.subscription_path, pubsub_callback)
+
     def attach(self):
         """
         Blocks until the job terminates.
         """
-        subscriber = self.gcloud.get_subscriber()
-        subscription_path = self._create_subscription(subscriber)
+        if not self.running:
+            raise ValueError('The job is not running')
 
-        try:
-            while True:
-                message = self._pull_message(subscriber, subscription_path)
-                if message:
-                    return json.loads(message.data)
-        finally:
-            subscriber.delete_subscription(subscription_path)
-
-    def has_finished(self):
-        return False
-
-    def get_status_code(self):
-        return None
+        while True:
+            message = self._pull_message(self.subscriber, self.subscription_path)
+            if message:
+                return json.loads(message.data)
 
     def _pull_message(self, subscriber, subscription_path):
         response = subscriber.pull(

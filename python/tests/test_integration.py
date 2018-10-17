@@ -128,14 +128,15 @@ class CloudSdkIntegrationStub:
 class TestJobGroupIntegration:
     def test_job_group_is_executed(self):
         with CloudSdkIntegrationStub() as gcloud:
-            group = clash.JobGroup(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
-            group.add_job("echo hello")
-            group.add_job("echo world")
+            job_factory = clash.JobFactory(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+            group = clash.JobGroup(name="mygroup", job_factory=job_factory)
+            group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+            group.add_job(clash.JobRuntimeSpec(script="echo world"))
 
             group.run()
 
             assert b"hello\n" in gcloud.instances[0].logs()
-            assert b"world\n" in gcloud.instances[0].logs()
+            assert b"world\n" in gcloud.instances[1].logs()
 
 
 class TestJobIntegration:

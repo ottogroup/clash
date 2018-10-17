@@ -290,13 +290,14 @@ class TestJob:
             TEST_JOB_CONFIG["project_id"], job.name
         )
 
-    def test_running_a_job_creates_a_pubsub_topic(self):
+    @patch("uuid.uuid1")
+    def test_running_a_job_creates_a_pubsub_topic(self, mock_uuid_call):
+        mock_uuid_call.return_value = 1234
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        self.gcloud.get_publisher().topic_path.side_effect = lambda x, y: "mytopic"
 
         job.run("")
 
-        self.gcloud.get_publisher().create_topic.assert_called_with("mytopic")
+        self.gcloud.get_publisher().create_topic.assert_called_with(f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234")
 
     def test_attaching_fails_if_there_is_not_a_running_job(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
@@ -312,7 +313,7 @@ class TestJob:
 
         job.attach()  # throws no exception
 
-    def test_attaching_for_a_job_creates_a_pubsub_subscription(self):
+    def test_running_a_job_creates_a_pubsub_subscription_for_status_updates(self):
         message = MagicMock()
         message.message = MagicMock(data='{"status": 0}')
         self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
@@ -322,9 +323,8 @@ class TestJob:
             lambda x, y: "mysubscription"
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
 
-        result = job.attach()
+        job.run("")
 
         self.gcloud.get_subscriber().create_subscription.assert_called_with(
             "mysubscription", "mytopic"
@@ -362,45 +362,6 @@ class TestJob:
             "mysubscription", [42]
         )
 
-    def test_attaching_deletes_subscription(self):
-        message = MagicMock()
-        message.message = MagicMock(data='{"status": 0}')
-        self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
-        self.gcloud.get_subscriber().subscription_path.side_effect = (
-            lambda x, y: "mysubscription"
-        )
-        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
-
-        result = job.attach()
-
-        self.gcloud.get_subscriber().delete_subscription.assert_called_with(
-            "mysubscription"
-        )
-
-    def test_attaching_deletes_subscription_when_pulling_fails(self):
-        self.gcloud.get_subscriber().pull.side_effect = ValueError()
-        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
-
-        with pytest.raises(ValueError) as e_info:
-            job.attach()
-
-        self.gcloud.get_subscriber().delete_subscription.assert_called()
-
-    def test_attaching_deletes_subscription_when_ack_fails(self):
-        message = MagicMock()
-        message.message = MagicMock(data='{"status": 0}')
-        self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
-        self.gcloud.get_subscriber().acknowledge.side_effect = ValueError()
-        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
-
-        with pytest.raises(ValueError) as e_info:
-            job.attach()
-
-        self.gcloud.get_subscriber().delete_subscription.assert_called()
-
     def test_attaching_returns_status_code(self):
         message = MagicMock()
         message.message = MagicMock(data='{"status": 127}')
@@ -417,7 +378,9 @@ class TestJobGroup:
     def setup(self):
         self.gcloud = CloudSdkStub()
         self.test_job_one = MagicMock()
+        self.test_job_one.on_finish.side_effect = lambda callback: callback(0)
         self.test_job_two = MagicMock()
+        self.test_job_two.on_finish.side_effect = lambda callback: callback(0)
         self.test_factory = MagicMock()
         calls = {"create_job": 0}
 
@@ -480,10 +443,6 @@ class TestJobGroup:
         )
 
     def test_attach_returns_true_when_all_jobs_have_finished_sucessfully(self):
-        self.test_job_one.has_finished.return_value = True
-        self.test_job_one.get_status_code.return_value = 0
-        self.test_job_two.has_finished.return_value = True
-        self.test_job_two.get_status_code.return_value = 0
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(clash.JobRuntimeSpec(script="echo hello"))
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
@@ -494,10 +453,7 @@ class TestJobGroup:
         assert result
 
     def test_attach_returns_false_when_a_job_has_failed(self):
-        self.test_job_one.has_finished.return_value = True
-        self.test_job_one.get_status_code.return_value = 0
-        self.test_job_two.has_finished.return_value = True
-        self.test_job_two.get_status_code.return_value = 1
+        self.test_job_two.on_finish.side_effect = lambda callback: callback(1)
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(clash.JobRuntimeSpec(script="echo hello"))
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
