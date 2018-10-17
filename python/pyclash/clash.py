@@ -261,7 +261,7 @@ class JobRuntimeSpec:
 
 
 class JobFactory:
-    def __init__(self, job_config, gcloud):
+    def __init__(self, job_config, gcloud=CloudSdk()):
         self.job_config = job_config
         self.gcloud = gcloud
 
@@ -293,17 +293,17 @@ class JobGroup:
             self.running_jobs.append(job)
 
     def attach(self):
-        jobs_status_codes = {}
-        def assign_status_code(job_id, status_code):
-            jobs_status_codes[job_id] = status_code
+        jobs_status_codes = []
+        def append_status_code(status_code):
+            jobs_status_codes.append(status_code)
 
         for job_id, job in enumerate(self.running_jobs):
-            job.on_finish(lambda status_code: assign_status_code(job_id, status_code))
+            job.on_finish(lambda status_code: append_status_code(status_code))
 
         while not len(jobs_status_codes) == len(self.running_jobs):
             time.sleep(1)
 
-        return all(map(lambda code: code == 0, jobs_status_codes.values()))
+        return all(map(lambda code: code == 0, jobs_status_codes))
 
 
 class Job:
@@ -383,7 +383,7 @@ class Job:
 
         def pubsub_callback(message):
             data = json.loads(message.data)
-            callback(data["status_code"])
+            callback(data["status"])
             message.ack()
 
         self.subscriber.subscribe(self.subscription_path, pubsub_callback)
