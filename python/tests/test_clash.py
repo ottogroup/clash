@@ -86,6 +86,7 @@ class TestStackdriverLogsReader:
         self.job.name = "job-123"
         self.job.job_config = TEST_JOB_CONFIG
         self.job.gcloud = self.gcloud
+        self.job.is_group.return_value = False
 
     def test_initializing_logging_creates_a_topic_path_for_logging(self):
         with clash.StackdriverLogsReader(self.job):
@@ -101,6 +102,24 @@ class TestStackdriverLogsReader:
         with clash.StackdriverLogsReader(self.job):
             self.gcloud.get_publisher().create_topic.assert_called_with(
                 "myloggingtopic"
+            )
+
+    def test_initializing_logging_caputures_group_logs(self):
+        self.job.is_group.return_value = True
+        self.gcloud.get_publisher().topic_path.side_effect = (
+            lambda x, y: "myloggingtopic"
+        )
+        EXPECTED_FILTER = f"""
+        resource.type="global"
+        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        jsonPayload.instance.name:"job-123"
+        """
+
+        with clash.StackdriverLogsReader(self.job):
+            self.gcloud.get_logging().sink.assert_called_with(
+                "job-123",
+                filter_=EXPECTED_FILTER,
+                destination="pubsub.googleapis.com/myloggingtopic",
             )
 
     def test_initializing_logging_setups_a_pubsub_sink(self):
