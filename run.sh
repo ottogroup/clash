@@ -22,7 +22,7 @@ function task_format {
 function task_unit_test {
   cd python
   pipenv run python setup.py develop
-  pipenv run pytest tests/test_clash.py
+  pipenv run pytest tests/test_clash.py "$@"
 }
 
 function task_integration_test {
@@ -60,7 +60,7 @@ shift || true
 case "$cmd" in
   init) task_init ;;
   lint) task_lint ;;
-  unit-test) task_unit_test ;;
+  unit-test) task_unit_test "$@" ;;
   integration-test) task_integration_test ;;
   clash) task_clash "$@" ;;
   format) task_format ;;
