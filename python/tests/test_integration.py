@@ -125,6 +125,19 @@ class CloudSdkIntegrationStub:
         return MagicMock()
 
 
+class TestJobGroupIntegration:
+    def test_job_group_is_executed(self):
+        with CloudSdkIntegrationStub() as gcloud:
+            group = clash.JobGroup(gcloud=gcloud, job_config=TEST_JOB_CONFIG)
+            group.add_job("echo hello")
+            group.add_job("echo world")
+
+            group.run()
+
+            assert b"hello\n" in gcloud.instances[0].logs()
+            assert b"world\n" in gcloud.instances[0].logs()
+
+
 class TestJobIntegration:
     def test_job_actually_runs_script(self):
         with CloudSdkIntegrationStub() as gcloud:

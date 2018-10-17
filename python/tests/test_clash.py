@@ -413,6 +413,80 @@ class TestJob:
         assert result["status"] == 127
 
 
+class TestJobGroup:
+    def setup(self):
+        self.gcloud = CloudSdkStub()
+
+    def test_creates_job_group(self):
+        job_factory = clash.JobFactory(job_config=TEST_JOB_CONFIG, gcloud=self.gcloud)
+        group = clash.JobGroup(name="mygroup", job_factory=job_factory)
+
+        assert "mygroup" == group.name
+
+    def test_runs_a_single_job(self):
+        test_job = MagicMock()
+        test_factory = MagicMock()
+        test_factory.create.return_value = test_job
+        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+
+        group.run()
+
+        test_factory.create.assert_called_with(name_prefix=f"mygroup-0")
+        test_job.run.assert_called_with(
+            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
+        )
+
+    def test_runs_multiple_jobs(self):
+        test_job_one = MagicMock()
+        test_job_two = MagicMock()
+        test_factory = MagicMock()
+        calls = {"create_job": 0}
+
+        def create_job(name_prefix):
+            if calls["create_job"] < 1:
+                calls["create_job"] += 1
+                return test_job_one
+            return test_job_two
+
+        test_factory.create.side_effect = create_job
+        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+
+        group.run()
+
+        test_job_one.run.assert_called_with(
+            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
+        )
+        test_job_two.run.assert_called_with(
+            script="echo world", env_vars={}, gcs_mounts={}, gcs_target={}
+        )
+
+    def test_passes_runtime_spec_to_job(self):
+        test_job = MagicMock()
+        test_factory = MagicMock()
+        test_factory.create.return_value = test_job
+        group = clash.JobGroup(name="mygroup", job_factory=test_factory)
+        group.add_job(
+            clash.JobRuntimeSpec(
+                script="_",
+                env_vars={"FOO": "bar"},
+                gcs_mounts={"bucket_name": "mount_dir"},
+                gcs_target={"artifacts_dir", "bucket_name"},
+            )
+        )
+
+        group.run()
+
+        test_job.run.assert_called_with(
+            script="_",
+            env_vars={"FOO": "bar"},
+            gcs_mounts={"bucket_name": "mount_dir"},
+            gcs_target={"artifacts_dir", "bucket_name"},
+        )
+
+
 def test_load_config():
     os.environ["MACHINE_TYPE"] = "strongmachine"
 

@@ -12,6 +12,7 @@ import sys
 import os
 from subprocess import call
 from threading import Lock
+from collections import namedtuple
 
 import jinja2
 import click
@@ -249,6 +250,48 @@ class StackdriverLogsReader:
         self.sink.delete()
         self.publisher.delete_topic(self.logging_topic)
         self.subscriber.delete_subscription(self.subscription_path)
+
+
+class JobRuntimeSpec:
+    def __init__(self, script, env_vars={}, gcs_mounts={}, gcs_target={}):
+        self.script = script
+        self.env_vars = env_vars
+        self.gcs_mounts = gcs_mounts
+        self.gcs_target = gcs_target
+
+
+class JobFactory:
+    def __init__(self, job_config, gcloud):
+        self.job_config = job_config
+        self.gcloud = gcloud
+
+    def create(self, name_prefix):
+        return Job(
+            name_prefix=name_prefix, job_config=self.job_config, gcloud=self.gcloud
+        )
+
+
+class JobGroup:
+    def __init__(self, name, job_factory):
+        self.name = name
+        self.job_factory = job_factory
+        gelf.job_specs = []
+
+    def add_job(self, runtime_spec):
+        self.job_specs.append(runtime_spec)
+
+    def run(self):
+        for spec_id, spec in enumerate(self.job_specs):
+            job = self.job_factory.create(name_prefix=f"{self.name}-{spec_id}")
+            job.run(
+                script=spec.script,
+                env_vars=spec.env_vars,
+                gcs_mounts=spec.gcs_mounts,
+                gcs_target=spec.gcs_target,
+            )
+
+    def attach(self):
+        pass
 
 
 class Job:
