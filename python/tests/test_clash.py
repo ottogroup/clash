@@ -373,6 +373,48 @@ class TestJob:
 
         assert result["status"] == 127
 
+    def test_on_finish_runs_callback_when_job_is_complete(self):
+        message = MagicMock()
+        message.data = "{ \"status_code\": 0 }"
+        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(message)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+        result = {'status_code': -1}
+        job.run("")
+
+        def callback(status_code):
+            result['status_code'] = status_code
+        job.on_finish(callback)
+
+        assert result['status_code'] == 0
+
+    def test_on_finish_does_not_run_callback_when_job_is_still_running(self):
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+        result = {'called': False}
+        job.run("")
+
+        def callback(status_code):
+            result['called'] = True
+        job.on_finish(callback)
+
+        assert not result['called']
+
+    def test_on_finish_acknowledges_message(self):
+        message = MagicMock()
+        message.data = "{ \"status_code\": 0 }"
+        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(message)
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+        job.run("")
+
+        job.on_finish(lambda status_code: None)
+
+        message.ack.assert_called()
+
+    def test_on_finish_fails_if_job_is_not_running(self):
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+
+        with pytest.raises(ValueError) as e_info:
+            job.on_finish(lambda status_code: None)
+
 
 class TestJobGroup:
     def setup(self):
