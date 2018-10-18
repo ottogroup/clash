@@ -43,39 +43,50 @@ DEFAULT_JOB_CONFIG = {
     ],
 }
 
+
 class JobConfigBuilder:
     def __init__(self, base_config=DEFAULT_JOB_CONFIG):
-        self.config = copy.deepcopy(config)
+        self.config = copy.deepcopy(base_config)
 
     def project_id(self, project_id):
-        self.config['project_id'] = project_id
+        self.config["project_id"] = project_id
+        return self
 
     def image(self, image):
-        self.config['image'] = image
+        self.config["image"] = image
+        return self
 
     def privileged(self, privileged):
-        self.config['privileged'] = privileged
+        self.config["privileged"] = privileged
+        return self
 
     def preemptible(self, preemptible):
-        self.config['preemptible'] = preemptible
+        self.config["preemptible"] = preemptible
+        return self
 
     def zone(self, zone):
-        self.config['zone'] = zone
+        self.config["zone"] = zone
+        return self
 
     def region(self, region):
-        self.config['region'] = zone
+        self.config["region"] = zone
+        return self
 
     def subnetwork(self, subnetwork):
-        self.config['subnetwork'] = zone
+        self.config["subnetwork"] = zone
+        return self
 
     def machine_type(self, machine_type):
-        self.config['machine_type'] = zone
+        self.config["machine_type"] = zone
+        return self
 
     def disk_image(self, disk_image):
-        self.config['disk_image'] = disk_image
+        self.config["disk_image"] = disk_image
+        return self
 
     def scopes(self, scopes):
-        self.config['scopes'] = scopes
+        self.config["scopes"] = scopes
+        return self
 
     def build(self):
         return copy.deepcopy(self.config)
