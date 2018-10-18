@@ -57,6 +57,10 @@ class ClashOperator(BaseOperator):
         with clash.StackdriverLogsReader(self.job, log_func=self.log.info):
             result = self.job.attach()
 
+        # workaround: wait for the instance to clean up resources
+        time.sleep(180)
+        group.clean_up() # clean up remaining resources
+
         if result["status"] != 0:
             raise AirflowException(
                 "The command failed with status code {}".format(result["status"])
