@@ -399,6 +399,30 @@ class Job:
 
             time.sleep(1)
 
+    def _create_instance_template(self, machine_config):
+        template_op = (
+            self.gcloud.get_compute_client()
+            .instanceTemplates()
+            .insert(
+                project=self.job_config["project_id"],
+                body={"name": self.name, "properties": machine_config},
+            )
+            .execute()
+        )
+        self._wait_for_operation(template_op["name"], True)
+
+    def _create_managed_instance_group(self, size):
+        self.gcloud.get_compute_client().instanceGroupManagers().insert(
+            project=self.job_config["project_id"],
+            zone=self.job_config["zone"],
+            body={
+                "baseInstanceName": self.name,
+                "instanceTemplate": f"global/instanceTemplates/{self.name}",
+                "name": self.name,
+                "targetSize": size,
+            },
+        ).execute()
+
     def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
         """
         Runs a script which is given as a string.
@@ -413,37 +437,21 @@ class Job:
             script, env_vars, gcs_target, gcs_mounts
         )
 
-        publisher = self.gcloud.get_publisher()
-        job_status_topic = publisher.topic_path(
+        self.publisher = self.gcloud.get_publisher()
+        self.job_status_topic = self.publisher.topic_path(
             self.job_config["project_id"], self.name
         )
-        publisher.create_topic(job_status_topic)
+        self.publisher.create_topic(self.job_status_topic)
 
         self.subscriber = self.gcloud.get_subscriber()
         self.subscription_path = self._create_subscription(self.subscriber)
-
-        template_op = (
-            self.gcloud.get_compute_client()
-            .instanceTemplates()
-            .insert(
-                project=self.job_config["project_id"],
-                body={"name": self.name, "properties": machine_config},
-            )
-            .execute()
-        )
-
-        self._wait_for_operation(template_op["name"], True)
-
-        self.gcloud.get_compute_client().instanceGroupManagers().insert(
-            project=self.job_config["project_id"],
-            zone=self.job_config["zone"],
-            body={
-                "baseInstanceName": self.name,
-                "instanceTemplate": f"global/instanceTemplates/{self.name}",
-                "name": self.name,
-                "targetSize": 1,
-            },
-        ).execute()
+        try:
+            self._create_instance_template(machine_config)
+            self._create_managed_instance_group(1)
+        except Exception as ex:
+            self.publisher.delete_topic(self.job_status_topic)
+            self.subscriber.delete_subscription(self.subscription_path)
+            raise ex
 
         self.running = True
 
@@ -511,17 +519,15 @@ class Job:
 
     def _create_subscription(self, subscriber):
         project_id = self.job_config["project_id"]
-        publisher = self.gcloud.get_publisher()
-        topic_path = subscriber.topic_path(project_id, self.name)
-        topics = [path.name for path in publisher.list_topics(f"projects/{project_id}")]
+        topics = [path.name for path in self.publisher.list_topics(f"projects/{project_id}")]
 
-        if topic_path not in topics:
+        if self.job_status_topic not in topics:
             raise ValueError("Could not find job {}".format(self.name))
 
         subscription_path = subscriber.subscription_path(
-            self.job_config["project_id"], self.name
+            project_id, self.name
         )
-        subscriber.create_subscription(subscription_path, topic_path)
+        subscriber.create_subscription(subscription_path, self.job_status_topic)
 
         return subscription_path
 

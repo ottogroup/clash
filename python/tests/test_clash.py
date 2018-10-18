@@ -308,6 +308,28 @@ class TestJob:
 
         self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.assert_called()
 
+    def test_removes_subscription_if_job_creation_failed(self):
+        self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.side_effect = Exception("Failure!")
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+
+        with pytest.raises(Exception) as e_info:
+            job.run("")
+
+        self.gcloud.get_subscriber().delete_subscription.assert_called_with(
+            f"{TEST_JOB_CONFIG['project_id']}/{job.name}"
+        )
+
+    def test_removes_topic_if_job_creation_failed(self):
+        self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.side_effect = Exception("Failure!")
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+
+        with pytest.raises(Exception) as e_info:
+            job.run("")
+
+        self.gcloud.get_publisher().delete_topic.assert_called_with(
+            f"{TEST_JOB_CONFIG['project_id']}/{job.name}"
+        )
+
     def test_running_a_job_creates_a_topic_path(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
