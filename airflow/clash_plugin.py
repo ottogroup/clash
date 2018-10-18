@@ -81,6 +81,11 @@ class ClashGroupOperator(BaseOperator):
         self.group.run()
         with clash.StackdriverLogsReader(self.group, log_func=self.log.info):
             result = self.group.wait()
+
+        # workaround: wait for the instances to clean up resources
+        time.sleep(180)
+        group.clean_up() # clean up remaining resources
+
         if not result:
             raise AirflowException(
                 "The command failed"
