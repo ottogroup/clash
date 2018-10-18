@@ -396,7 +396,9 @@ class Job:
     def __init__(self, job_config, name=None, name_prefix=None, gcloud=CloudSdk()):
         self.gcloud = gcloud
         self.job_config = job_config
-        self.running = False
+        self.started = False
+        self.subscriber = self.gcloud.get_subscriber()
+        self.publisher = self.gcloud.get_publisher()
 
         if not name:
             self.name = "clash-job-{}".format(str(uuid.uuid1())[0:16])
@@ -463,15 +465,12 @@ class Job:
             script, env_vars, gcs_target, gcs_mounts
         )
 
-        self.publisher = self.gcloud.get_publisher()
-        self.job_status_topic = self.publisher.topic_path(
-            self.job_config["project_id"], self.name
-        )
-        self.publisher.create_topic(self.job_status_topic)
-
-        self.subscriber = self.gcloud.get_subscriber()
-        self.subscription_path = self._create_subscription(self.subscriber)
         try:
+            self.job_status_topic = self.publisher.topic_path(
+                self.job_config["project_id"], self.name
+            )
+            self.publisher.create_topic(self.job_status_topic)
+            self.subscription_path = self._create_subscription(self.subscriber)
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
         except Exception as ex:
@@ -479,7 +478,7 @@ class Job:
             self.subscriber.delete_subscription(self.subscription_path)
             raise ex
 
-        self.running = True
+        self.started = True
 
     def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}):
         """
@@ -518,11 +517,33 @@ class Job:
 
         self.subscriber.subscribe(self.subscription_path, pubsub_callback)
 
+    def clean_up(self):
+        """
+        Deletes resources which are left-overs after a job is complete. Currently,
+        this method is just a workaround until we find a better solution.
+        """
+        if self.started:
+            self._remove_instance_template()
+
+    def _remove_instance_template(self):
+        if not self.started:
+            raise Exception("Job is not running")
+        template_op = (
+            self.gcloud.get_compute_client()
+            .instanceTemplates()
+            .delete(
+                project=self.job_config["project_id"],
+                instanceTemplate=self.name
+            )
+            .execute()
+        )
+        self._wait_for_operation(template_op["name"], True)
+
     def attach(self):
         """
         Blocks until the job terminates.
         """
-        if not self.running:
+        if not self.started:
             raise ValueError("The job is not running")
 
         while True:
@@ -548,14 +569,14 @@ class Job:
 
     def _create_subscription(self, subscriber):
         project_id = self.job_config["project_id"]
-        topics = [path.name for path in self.publisher.list_topics(f"projects/{project_id}")]
+        topics = [
+            path.name for path in self.publisher.list_topics(f"projects/{project_id}")
+        ]
 
         if self.job_status_topic not in topics:
             raise ValueError("Could not find job {}".format(self.name))
 
-        subscription_path = subscriber.subscription_path(
-            project_id, self.name
-        )
+        subscription_path = subscriber.subscription_path(project_id, self.name)
         subscriber.create_subscription(subscription_path, self.job_status_topic)
 
         return subscription_path

@@ -182,7 +182,10 @@ class TestJobIntegration:
 
             job.run("echo hello")
 
-            assert b"gcloud.compute.instance-groups.managed.delete" in gcloud.instances[0].logs()
+            assert (
+                b"gcloud.compute.instance-groups.managed.delete"
+                in gcloud.instances[0].logs()
+            )
 
     @patch("uuid.uuid1")
     def test_job_sends_pubpub_message_on_success(self, mock_uuid_call):
