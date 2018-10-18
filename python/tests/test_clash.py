@@ -45,6 +45,13 @@ class CloudSdkStub:
     def __init__(self):
         self.compute = MagicMock()
 
+        operations = MagicMock()
+        request = MagicMock()
+        request.execute.return_value = {"status": "DONE"}
+        operations.get.return_value = request
+        self.compute.globalOperations.return_value = operations
+        self.compute.zoneOperations.return_value = operations
+
         self.publisher = MagicMock()
         self.topics = []
         self.publisher.list_topics.return_value = self.topics
@@ -233,13 +240,7 @@ class TestMachineConfig:
 
         machine_config = manifest.to_dict()
 
-        assert machine_config[
-            "machineType"
-        ] == "https://www.googleapis.com/compute/beta/projects/{}/zones/{}/machineTypes/{}".format(
-            TEST_JOB_CONFIG["project_id"],
-            TEST_JOB_CONFIG["zone"],
-            TEST_JOB_CONFIG["machine_type"],
-        )
+        assert machine_config["machineType"] == "n1-standard-1"
 
     def test_automatic_restart_is_always_false(self):
         manifest = clash.MachineConfig(
@@ -293,12 +294,19 @@ class TestJob:
 
         assert "foo-clash-job-1234" == job.name
 
-    def test_running_a_job_runs_an_instance(self):
+    def test_running_a_job_creates_an_instance_template(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         job.run("")
 
-        self.gcloud.get_compute_client().instances.return_value.insert.return_value.execute.assert_called()
+        self.gcloud.get_compute_client().instanceTemplates.return_value.insert.return_value.execute.assert_called()
+
+    def test_running_a_job_creates_a_managed_instance_group(self):
+        job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
+
+        job.run("")
+
+        self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.assert_called()
 
     def test_running_a_job_creates_a_topic_path(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
@@ -316,7 +324,9 @@ class TestJob:
 
         job.run("")
 
-        self.gcloud.get_publisher().create_topic.assert_called_with(f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234")
+        self.gcloud.get_publisher().create_topic.assert_called_with(
+            f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234"
+        )
 
     def test_attaching_fails_if_there_is_not_a_running_job(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
@@ -394,33 +404,39 @@ class TestJob:
 
     def test_on_finish_runs_callback_when_job_is_complete(self):
         message = MagicMock()
-        message.data = "{ \"status\": 0 }"
-        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(message)
+        message.data = '{ "status": 0 }'
+        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(
+            message
+        )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        result = {'status': -1}
+        result = {"status": -1}
         job.run("")
 
         def callback(status_code):
-            result['status'] = status_code
+            result["status"] = status_code
+
         job.on_finish(callback)
 
-        assert result['status'] == 0
+        assert result["status"] == 0
 
     def test_on_finish_does_not_run_callback_when_job_is_still_running(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        result = {'called': False}
+        result = {"called": False}
         job.run("")
 
         def callback(status_code):
-            result['called'] = True
+            result["called"] = True
+
         job.on_finish(callback)
 
-        assert not result['called']
+        assert not result["called"]
 
     def test_on_finish_acknowledges_message(self):
         message = MagicMock()
-        message.data = "{ \"status\": 0 }"
-        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(message)
+        message.data = '{ "status": 0 }'
+        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(
+            message
+        )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run("")
 
@@ -509,7 +525,7 @@ class TestJobGroup:
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
         group.run()
 
-        result = group.attach()
+        result = group.wait()
 
         assert result
 
@@ -520,7 +536,7 @@ class TestJobGroup:
         group.add_job(clash.JobRuntimeSpec(script="echo world"))
         group.run()
 
-        result = group.attach()
+        result = group.wait()
 
         assert not result
 

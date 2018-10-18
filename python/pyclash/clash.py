@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import logging
 import uuid
+import copy
 import json
 import time
 import yaml
@@ -199,16 +200,12 @@ class MachineConfig:
         )
         source_disk_image = image_response["selfLink"]
 
-        machine_type = "zones/{}/machineTypes/{}".format(
-            self.job_config["zone"], self.job_config["machine_type"]
-        )
-
         rendered = json.loads(
             self.template_env.get_template("machine_config.json.j2").render(
                 vm_name=self.vm_name,
                 source_image=source_disk_image,
                 project_id=self.job_config["project_id"],
-                machine_type=machine_type,
+                machine_type=self.job_config["machine_type"],
                 region=self.job_config["region"],
                 scopes=self.job_config["scopes"],
                 subnetwork=self.job_config["subnetwork"],
@@ -234,7 +231,9 @@ class StackdriverLogsReader:
         """
         self.job_or_group = job_or_group
 
-        self.logging_client = job_or_group.gcloud.get_logging(job_or_group.job_config["project_id"])
+        self.logging_client = job_or_group.gcloud.get_logging(
+            job_or_group.job_config["project_id"]
+        )
         self.publisher = job_or_group.gcloud.get_publisher()
         self.subscriber = job_or_group.gcloud.get_subscriber()
         self.log_func = log_func
@@ -332,13 +331,14 @@ class JobGroup:
             )
             self.running_jobs.append(job)
 
-    def attach(self):
-        jobs_status_codes = []
+    def wait(self):
+        jobs_status_codes = []  # arrays are thread-safe in Python
+
         def append_status_code(status_code):
             jobs_status_codes.append(status_code)
 
         for job_id, job in enumerate(self.running_jobs):
-            job.on_finish(lambda status_code: append_status_code(status_code))
+            job.on_finish(append_status_code)
 
         while not len(jobs_status_codes) == len(self.running_jobs):
             time.sleep(1)
@@ -362,11 +362,31 @@ class Job:
         self.running = False
 
         if not name:
-            self.name = "clash-job-{}".format(uuid.uuid1())
+            self.name = "clash-job-{}".format(str(uuid.uuid1())[0:16])
             if name_prefix:
                 self.name = f"{name_prefix}-" + self.name
         else:
             self.name = name
+
+    def _wait_for_operation(self, operation, is_global_op):
+        compute = self.gcloud.get_compute_client()
+        operations_client = (
+            compute.globalOperations() if is_global_op else compute.zoneOperations()
+        )
+
+        args = {"project": self.job_config["project_id"], "operation": operation}
+        if not is_global_op:
+            args["zone"] = self.job_config["zone"]
+
+        while True:
+            result = operations_client.get(**args).execute()
+
+            if result["status"] == "DONE":
+                if "error" in result:
+                    raise Exception(result["error"])
+                return result
+
+            time.sleep(1)
 
     def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
         """
@@ -383,16 +403,35 @@ class Job:
         )
 
         publisher = self.gcloud.get_publisher()
-        job_status_topic = publisher.topic_path(self.job_config["project_id"], self.name)
+        job_status_topic = publisher.topic_path(
+            self.job_config["project_id"], self.name
+        )
         publisher.create_topic(job_status_topic)
 
         self.subscriber = self.gcloud.get_subscriber()
         self.subscription_path = self._create_subscription(self.subscriber)
 
-        self.gcloud.get_compute_client().instances().insert(
+        template_op = (
+            self.gcloud.get_compute_client()
+            .instanceTemplates()
+            .insert(
+                project=self.job_config["project_id"],
+                body={"name": self.name, "properties": machine_config},
+            )
+            .execute()
+        )
+
+        self._wait_for_operation(template_op["name"], True)
+
+        self.gcloud.get_compute_client().instanceGroupManagers().insert(
             project=self.job_config["project_id"],
             zone=self.job_config["zone"],
-            body=machine_config,
+            body={
+                "baseInstanceName": self.name,
+                "instanceTemplate": f"global/instanceTemplates/{self.name}",
+                "name": self.name,
+                "targetSize": 1,
+            },
         ).execute()
 
         self.running = True
@@ -436,7 +475,7 @@ class Job:
         Blocks until the job terminates.
         """
         if not self.running:
-            raise ValueError('The job is not running')
+            raise ValueError("The job is not running")
 
         while True:
             message = self._pull_message(self.subscriber, self.subscription_path)
