@@ -42,6 +42,43 @@ DEFAULT_JOB_CONFIG = {
     ],
 }
 
+class JobConfigBuilder:
+    def __init__(self, base_config=DEFAULT_JOB_CONFIG):
+        self.config = copy.deepcopy(config)
+
+    def project_id(self, project_id):
+        self.config['project_id'] = project_id
+
+    def image(self, image):
+        self.config['image'] = image
+
+    def privileged(self, privileged):
+        self.config['privileged'] = privileged
+
+    def preemptible(self, preemptible):
+        self.config['preemptible'] = preemptible
+
+    def zone(self, zone):
+        self.config['zone'] = zone
+
+    def region(self, region):
+        self.config['region'] = zone
+
+    def subnetwork(self, subnetwork):
+        self.config['subnetwork'] = zone
+
+    def machine_type(self, machine_type):
+        self.config['machine_type'] = zone
+
+    def disk_image(self, disk_image):
+        self.config['disk_image'] = disk_image
+
+    def scopes(self, scopes):
+        self.config['scopes'] = scopes
+
+    def build(self):
+        return copy.deepcopy(self.config)
+
 
 class MemoryCache:
     """ Having this class avoids dependency issues with the compute engine client"""
