@@ -74,6 +74,12 @@ class CloudSdkIntegrationStub:
     def __init__(self):
 
         self.compute = MagicMock()
+        request = MagicMock()
+        request.execute.return_value = {"status": "DONE"}
+        operations = MagicMock()
+        operations.get.return_value = request
+        self.compute.globalOperations.return_value = operations
+        self.compute.zoneOperations.return_value = operations
 
         self.topics = []
 
@@ -98,12 +104,34 @@ class CloudSdkIntegrationStub:
         self.instances = []
         self.detach = False
 
-        def insert(project, zone, body):
+        def insert_instance(project, zone, body):
             instance = InstanceStub(self, project, zone, body)
             self.instances.append(instance)
             return instance
 
-        self.compute.instances.return_value.insert.side_effect = insert
+        operation = MagicMock()
+        operation.name = "an_operation"
+        instance_templates = {}
+
+        def insert_instance_template(project, body):
+            instance_templates[f"global/instanceTemplates/{body['name']}"] = body[
+                "properties"
+            ]
+            return operation
+
+        # for simplicity, we ignore the group concept here and just create an instance
+        def insert_managed_group(project, zone, body):
+            return insert_instance(
+                project, zone, instance_templates[body["instanceTemplate"]]
+            )
+
+        self.compute.instances.return_value.insert.side_effect = insert_instance
+        self.compute.instanceTemplates.return_value.insert.side_effect = (
+            insert_instance_template
+        )
+        self.compute.instanceGroupManagers.return_value.insert.side_effect = (
+            insert_managed_group
+        )
 
     def __enter__(self):
         return self
@@ -154,7 +182,7 @@ class TestJobIntegration:
 
             job.run("echo hello")
 
-            assert b"gcloud.compute.instances.delete" in gcloud.instances[0].logs()
+            assert b"gcloud.compute.instance-groups.managed.delete" in gcloud.instances[0].logs()
 
     @patch("uuid.uuid1")
     def test_job_sends_pubpub_message_on_success(self, mock_uuid_call):
