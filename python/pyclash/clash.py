@@ -320,7 +320,16 @@ class JobFactory:
 
 
 class JobGroup:
+    """
+    This class allows the creation of multiple jobs.
+    """
     def __init__(self, name, job_factory):
+        """
+        Constructs a new group.
+
+        :param name the name of the group
+        :param job_factory a factory that creates individual jobs
+        """
         self.name = name
         self.job_factory = job_factory
         self.job_config = job_factory.job_config
@@ -329,9 +338,16 @@ class JobGroup:
         self.running_jobs = []
 
     def add_job(self, runtime_spec):
+        """
+        Adds a job to the group.
+        :param runtime_spec runtime specification of the job
+        """
         self.job_specs.append(runtime_spec)
 
     def run(self):
+        """
+        Runs all jobs that are part of the group.
+        """
         for spec_id, spec in enumerate(self.job_specs):
             job = self.job_factory.create(name_prefix=f"{self.name}-{spec_id}")
             job.run(
@@ -343,6 +359,9 @@ class JobGroup:
             self.running_jobs.append(job)
 
     def wait(self):
+        """
+        Blocks until all jobs of the group are complete.
+        """
         jobs_status_codes = []  # arrays are thread-safe in Python
 
         def append_status_code(status_code):
@@ -355,6 +374,13 @@ class JobGroup:
             time.sleep(1)
 
         return all(map(lambda code: code == 0, jobs_status_codes))
+
+    def clean_up(self):
+        """
+        Manual clean up. This method is a workaround and will disappear soon.
+        """
+        for job in self.running_jobs:
+            job.clean_up()
 
     def is_group(self):
         return True
@@ -479,7 +505,10 @@ class Job:
         ).to_dict()
 
     def on_finish(self, callback):
-        if not self.running:
+        """
+        Sets a callback function which is executed when the job is complete.
+        """
+        if not self.started:
             raise ValueError("The job is not running")
 
         def pubsub_callback(message):
