@@ -62,6 +62,30 @@ class ClashOperator(BaseOperator):
                 "The command failed with status code {}".format(result["status"])
             )
 
+class ClashGroupOperator(BaseOperator):
+    @apply_defaults
+    def __init__(
+        self,
+        name,
+        job_factory,
+        runtime_specs,
+        *args,
+        **kwargs
+    ):
+        self.group = clash.JobGroup(name=name, job_factory=job_factory)
+        for spec in runtime_specs:
+            self.group.add_job(spec)
+        super(ClashGroupOperator, self).__init__(*args, **kwargs)
+
+    def execute(self, context):
+        self.group.run()
+        with clash.StackdriverLogsReader(self.group, log_func=self.log.info):
+            result = self.group.wait()
+        if not result:
+            raise AirflowException(
+                "The command failed"
+            )
+
 
 class ClashPlugin(AirflowPlugin):
     name = "clash_plugin"
