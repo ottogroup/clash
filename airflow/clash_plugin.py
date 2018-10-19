@@ -1,4 +1,5 @@
 import logging
+import time
 from pyclash import clash
 
 from airflow.models import BaseOperator
@@ -10,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 class ClashOperator(BaseOperator):
-    template_fields = ('cmd', 'cmd_file', 'env')
+    template_fields = ('cmd', 'cmd_file' )
 
     @apply_defaults
     def __init__(
@@ -67,6 +68,7 @@ class ClashOperator(BaseOperator):
             )
 
 class ClashGroupOperator(BaseOperator):
+
     @apply_defaults
     def __init__(
         self,
@@ -98,4 +100,4 @@ class ClashGroupOperator(BaseOperator):
 
 class ClashPlugin(AirflowPlugin):
     name = "clash_plugin"
-    operators = [ClashOperator]
+    operators = [ClashOperator, ClashGroupOperator]
