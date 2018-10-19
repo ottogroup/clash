@@ -48,7 +48,7 @@ function task_release {
 }
 
 function task_deploy_airflow_plugin {
-  gcloud composer environments storage plugins import --environment 'biws-composer' \
+  gcloud composer environments storage plugins import --environment $COMPOSER_ENVIRONMENT \
       --location 'europe-west1' \
       --source airflow/clash_plugin.py \
       --destination 'tooling/'
