@@ -25,7 +25,7 @@ def redirect_stdout(target):
 
 
 TEST_JOB_CONFIG = {
-    "project_id": "yourproject-foobar",
+    "project_id": "test-project",
     "image": "test-cloudsdk:latest",
     "zone": "europe-west1-b",
     "privileged": False,
