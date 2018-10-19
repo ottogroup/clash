@@ -48,7 +48,11 @@ function task_release {
 }
 
 function task_deploy_airflow_plugin {
-  gcloud composer environments storage plugins import --environment $COMPOSER_ENVIRONMENT \
+  if [ -z "$COMPOSER_ENVIRONMENT" ]; then
+   echo 'Please set COMPOSER_ENVIRONMENT'
+   exit 1
+  fi
+  gcloud composer environments storage plugins import --environment "$COMPOSER_ENVIRONMENT" \
       --location 'europe-west1' \
       --source airflow/clash_plugin.py \
       --destination 'tooling/'
