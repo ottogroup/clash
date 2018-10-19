@@ -467,14 +467,18 @@ class Job:
             script, env_vars, gcs_target, gcs_mounts
         )
 
+        self.job_status_topic = None
+        self.job_status_subscription = None
         try:
             self.job_status_topic = self._create_status_topic()
             self.job_status_subscription = self._create_status_subscription()
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
         except Exception as ex:
-            self.publisher.delete_topic(self.job_status_topic)
-            self.subscriber.delete_subscription(self.job_status_subscription)
+            if self.job_status_topic:
+                self.publisher.delete_topic(self.job_status_topic)
+            if self.job_status_subscription:
+                self.subscriber.delete_subscription(self.job_status_subscription)
             raise ex
 
         self.started = True
