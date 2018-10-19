@@ -60,7 +60,7 @@ class ClashOperator(BaseOperator):
 
         # workaround: wait for the instance to clean up resources
         time.sleep(180)
-        group.clean_up() # clean up remaining resources
+        self.job.clean_up() # clean up remaining resources
 
         if result["status"] != 0:
             raise AirflowException(
@@ -90,7 +90,7 @@ class ClashGroupOperator(BaseOperator):
 
         # workaround: wait for the instances to clean up resources
         time.sleep(180)
-        group.clean_up() # clean up remaining resources
+        self.group.clean_up() # clean up remaining resources
 
         if not result:
             raise AirflowException(
