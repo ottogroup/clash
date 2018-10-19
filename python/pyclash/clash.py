@@ -265,6 +265,7 @@ class StackdriverLogsReader:
         return logging_callback
 
     def _create_filter(self):
+        # ':' checks whether a log entry contains a string whereas '=' checks for equality
         log_restriction_char = ":" if self.job_or_group.is_group() else "="
         return f"""
         resource.type="global"
@@ -323,6 +324,7 @@ class JobGroup:
     """
     This class allows the creation of multiple jobs.
     """
+
     def __init__(self, name, job_factory):
         """
         Constructs a new group.
@@ -334,8 +336,10 @@ class JobGroup:
         self.job_factory = job_factory
         self.job_config = job_factory.job_config
         self.gcloud = job_factory.gcloud
+
         self.job_specs = []
         self.running_jobs = []
+        self.jobs_status_codes = []
 
     def add_job(self, runtime_spec):
         """
@@ -356,24 +360,22 @@ class JobGroup:
                 gcs_mounts=spec.gcs_mounts,
                 gcs_target=spec.gcs_target,
             )
+            # arrays are thread-safe in Python (due to GIL)
+            job.on_finish(
+                lambda status_code: self.jobs_status_codes.append(status_code)
+            )
             self.running_jobs.append(job)
 
     def wait(self):
         """
         Blocks until all jobs of the group are complete.
+
+        :returns true if all jobs succeeded else false
         """
-        jobs_status_codes = []  # arrays are thread-safe in Python
-
-        def append_status_code(status_code):
-            jobs_status_codes.append(status_code)
-
-        for job_id, job in enumerate(self.running_jobs):
-            job.on_finish(append_status_code)
-
-        while not len(jobs_status_codes) == len(self.running_jobs):
+        while not len(self.jobs_status_codes) == len(self.running_jobs):
             time.sleep(1)
 
-        return all(map(lambda code: code == 0, jobs_status_codes))
+        return all(map(lambda code: code == 0, self.jobs_status_codes))
 
     def clean_up(self):
         """
@@ -466,16 +468,13 @@ class Job:
         )
 
         try:
-            self.job_status_topic = self.publisher.topic_path(
-                self.job_config["project_id"], self.name
-            )
-            self.publisher.create_topic(self.job_status_topic)
-            self.subscription_path = self._create_subscription(self.subscriber)
+            self.job_status_topic = self._create_status_topic()
+            self.job_status_subscription = self._create_status_subscription()
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
         except Exception as ex:
             self.publisher.delete_topic(self.job_status_topic)
-            self.subscriber.delete_subscription(self.subscription_path)
+            self.subscriber.delete_subscription(self.job_status_subscription)
             raise ex
 
         self.started = True
@@ -515,7 +514,7 @@ class Job:
             callback(data["status"])
             message.ack()
 
-        self.subscriber.subscribe(self.subscription_path, pubsub_callback)
+        self.subscriber.subscribe(self.job_status_subscription, pubsub_callback)
 
     def clean_up(self):
         """
@@ -531,10 +530,7 @@ class Job:
         template_op = (
             self.gcloud.get_compute_client()
             .instanceTemplates()
-            .delete(
-                project=self.job_config["project_id"],
-                instanceTemplate=self.name
-            )
+            .delete(project=self.job_config["project_id"], instanceTemplate=self.name)
             .execute()
         )
         self._wait_for_operation(template_op["name"], True)
@@ -547,7 +543,7 @@ class Job:
             raise ValueError("The job is not running")
 
         while True:
-            message = self._pull_message(self.subscriber, self.subscription_path)
+            message = self._pull_message(self.subscriber, self.job_status_subscription)
             if message:
                 return json.loads(message.data)
 
@@ -567,17 +563,24 @@ class Job:
 
         return None
 
-    def _create_subscription(self, subscriber):
+    def _create_status_topic(self):
+        job_status_topic = self.publisher.topic_path(
+            self.job_config["project_id"], self.name
+        )
+        self.publisher.create_topic(job_status_topic)
+        return job_status_topic
+
+    def _create_status_subscription(self):
         project_id = self.job_config["project_id"]
         topics = [
             path.name for path in self.publisher.list_topics(f"projects/{project_id}")
         ]
 
         if self.job_status_topic not in topics:
-            raise ValueError("Could not find job {}".format(self.name))
+            raise ValueError(f"Could not find status topic for job {self.name}")
 
-        subscription_path = subscriber.subscription_path(project_id, self.name)
-        subscriber.create_subscription(subscription_path, self.job_status_topic)
+        subscription_path = self.subscriber.subscription_path(project_id, self.name)
+        self.subscriber.create_subscription(subscription_path, self.job_status_topic)
 
         return subscription_path
 
