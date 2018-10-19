@@ -69,15 +69,15 @@ class JobConfigBuilder:
         return self
 
     def region(self, region):
-        self.config["region"] = zone
+        self.config["region"] = region
         return self
 
     def subnetwork(self, subnetwork):
-        self.config["subnetwork"] = zone
+        self.config["subnetwork"] = subnetwork
         return self
 
     def machine_type(self, machine_type):
-        self.config["machine_type"] = zone
+        self.config["machine_type"] = machine_type
         return self
 
     def disk_image(self, disk_image):
