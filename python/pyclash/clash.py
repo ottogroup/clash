@@ -268,8 +268,7 @@ class StackdriverLogsReader:
         # ':' checks whether a log entry contains a string whereas '=' checks for equality
         log_restriction_char = ":" if self.job_or_group.is_group() else "="
         return f"""
-        resource.type="global"
-        logName="projects/{self.job_or_group.job_config["project_id"]}/logs/gcplogs-docker-driver"
+        resource.type="gce_instance"
         jsonPayload.instance.name{log_restriction_char}"{self.job_or_group.name}"
         """
 
