@@ -234,19 +234,13 @@ class StackdriverLogsReader:
     Reads logs of a job.
     """
 
-    def __init__(self, job_or_group, log_func=logger.info):
+    def __init__(self, job_or_group, log_func=print):
         """
         Args:
             job_or_group: a job or a job-group
             log_func (string -> ): function which processes a log entry
         """
         self.job_or_group = job_or_group
-
-        self.logging_client = job_or_group.gcloud.get_logging(
-            job_or_group.job_config["project_id"]
-        )
-        self.publisher = job_or_group.gcloud.get_publisher()
-        self.subscriber = job_or_group.gcloud.get_subscriber()
         self.log_func = log_func
 
     def _create_callback(self):
@@ -273,31 +267,39 @@ class StackdriverLogsReader:
         """
 
     def __enter__(self):
-        self.logging_topic = self.publisher.topic_path(
+        logging_client = self.job_or_group.gcloud.get_logging(
+            self.job_or_group.job_config["project_id"]
+        )
+        publisher = self.job_or_group.gcloud.get_publisher()
+        subscriber = self.job_or_group.gcloud.get_subscriber()
+
+        # create topic
+        self.logging_topic = publisher.topic_path(
             self.job_or_group.job_config["project_id"], self.job_or_group.name + "-logs"
         )
-        self.publisher.create_topic(self.logging_topic)
+        publisher.create_topic(self.logging_topic)
 
-        self.sink = self.logging_client.sink(
+        # create sink
+        self.sink = logging_client.sink(
             self.job_or_group.name,
             filter_=self._create_filter(),
             destination=f"pubsub.googleapis.com/{self.logging_topic}",
         )
         self.sink.create()
 
-        self.subscription_path = self.subscriber.subscription_path(
+        # create subscription
+        self.subscription_path = subscriber.subscription_path(
             self.job_or_group.job_config["project_id"], self.job_or_group.name + "-logs"
         )
-        self.subscriber.create_subscription(self.subscription_path, self.logging_topic)
-        self.subscriber.subscribe(
-            self.subscription_path, callback=self._create_callback()
-        )
+        subscriber.create_subscription(self.subscription_path, self.logging_topic)
+        subscriber.subscribe(self.subscription_path, callback=self._create_callback())
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.sink.delete()
-        self.publisher.delete_topic(self.logging_topic)
-        self.subscriber.delete_subscription(self.subscription_path)
+        self.job_or_group.gcloud.get_publisher().delete_topic(self.logging_topic)
+        self.job_or_group.gcloud.get_subscriber().delete_subscription(self.subscription_path)
 
 
 class JobRuntimeSpec:
@@ -398,8 +400,6 @@ class Job:
         self.gcloud = gcloud
         self.job_config = job_config
         self.started = False
-        self.subscriber = self.gcloud.get_subscriber()
-        self.publisher = self.gcloud.get_publisher()
 
         if not name:
             self.name = "clash-job-{}".format(str(uuid.uuid1())[0:16])
@@ -462,6 +462,9 @@ class Job:
             gcs_target (dict): Files which will be copied to GCS when the script is done.
             gcs_mounts (dict): Buckets which will be mounted using gcsfuse (if available).
         """
+        subscriber = self.gcloud.get_subscriber()
+        publisher = self.gcloud.get_publisher()
+
         machine_config = self._create_machine_config(
             script, env_vars, gcs_target, gcs_mounts
         )
@@ -469,15 +472,15 @@ class Job:
         self.job_status_topic = None
         self.job_status_subscription = None
         try:
-            self.job_status_topic = self._create_status_topic()
-            self.job_status_subscription = self._create_status_subscription()
+            self.job_status_topic = self._create_status_topic(publisher)
+            self.job_status_subscription = self._create_status_subscription(publisher, subscriber)
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
         except Exception as ex:
             if self.job_status_topic:
-                self.publisher.delete_topic(self.job_status_topic)
+                publisher.delete_topic(self.job_status_topic)
             if self.job_status_subscription:
-                self.subscriber.delete_subscription(self.job_status_subscription)
+                subscriber.delete_subscription(self.job_status_subscription)
             raise ex
 
         self.started = True
@@ -517,7 +520,7 @@ class Job:
             callback(data["status"])
             message.ack()
 
-        self.subscriber.subscribe(self.job_status_subscription, pubsub_callback)
+        self.gcloud.get_subscriber().subscribe(self.job_status_subscription, pubsub_callback)
 
     def clean_up(self):
         """
@@ -545,8 +548,9 @@ class Job:
         if not self.started:
             raise ValueError("The job is not running")
 
+        subscriber = self.gcloud.get_subscriber()
         while True:
-            message = self._pull_message(self.subscriber, self.job_status_subscription)
+            message = self._pull_message(subscriber, self.job_status_subscription)
             if message:
                 return json.loads(message.data)
 
@@ -566,24 +570,24 @@ class Job:
 
         return None
 
-    def _create_status_topic(self):
-        job_status_topic = self.publisher.topic_path(
+    def _create_status_topic(self, publisher):
+        job_status_topic = publisher.topic_path(
             self.job_config["project_id"], self.name
         )
-        self.publisher.create_topic(job_status_topic)
+        publisher.create_topic(job_status_topic)
         return job_status_topic
 
-    def _create_status_subscription(self):
+    def _create_status_subscription(self, publisher, subscriber):
         project_id = self.job_config["project_id"]
         topics = [
-            path.name for path in self.publisher.list_topics(f"projects/{project_id}")
+            path.name for path in publisher.list_topics(f"projects/{project_id}")
         ]
 
         if self.job_status_topic not in topics:
             raise ValueError(f"Could not find status topic for job {self.name}")
 
-        subscription_path = self.subscriber.subscription_path(project_id, self.name)
-        self.subscriber.create_subscription(subscription_path, self.job_status_topic)
+        subscription_path = subscriber.subscription_path(project_id, self.name)
+        subscriber.create_subscription(subscription_path, self.job_status_topic)
 
         return subscription_path
 
