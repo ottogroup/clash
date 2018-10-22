@@ -55,8 +55,7 @@ class ClashOperator(BaseOperator):
         else:
             raise AirflowException("No command was given")
 
-        with clash.StackdriverLogsReader(self.job, log_func=self.log.info):
-            result = self.job.attach()
+        result = self.job.attach()
 
         # workaround: wait for the instance to clean up resources
         time.sleep(180)
@@ -85,8 +84,7 @@ class ClashGroupOperator(BaseOperator):
 
     def execute(self, context):
         self.group.run()
-        with clash.StackdriverLogsReader(self.group, log_func=self.log.info):
-            result = self.group.wait()
+        result = self.group.wait()
 
         # workaround: wait for the instances to clean up resources
         time.sleep(180)
