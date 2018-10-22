@@ -1,6 +1,7 @@
 # -*- coding: future_fstrings -*-
 import mock
 import copy
+import pickle
 from mock import patch, MagicMock
 from collections import namedtuple
 import pytest
@@ -117,8 +118,7 @@ class TestStackdriverLogsReader:
             lambda x, y: "myloggingtopic"
         )
         EXPECTED_FILTER = f"""
-        resource.type="global"
-        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        resource.type="gce_instance"
         jsonPayload.instance.name:"job-123"
         """
 
@@ -134,8 +134,7 @@ class TestStackdriverLogsReader:
             lambda x, y: "myloggingtopic"
         )
         EXPECTED_FILTER = f"""
-        resource.type="global"
-        logName="projects/{TEST_JOB_CONFIG["project_id"]}/logs/gcplogs-docker-driver"
+        resource.type="gce_instance"
         jsonPayload.instance.name="job-123"
         """
 
@@ -204,6 +203,14 @@ class TestStackdriverLogsReader:
                     "mysubscription", callback=callback
                 )
 
+    # Airflow needs to be able to pickle our objects
+    def test_pickle_logs_reader(self):
+        job = clash.Job(TEST_JOB_CONFIG)
+        reader = clash.StackdriverLogsReader(job)
+
+        pickle.dump(reader, StringIO(''))
+
+        # does not fail
 
 class TestMachineConfig:
     def setup(self):
