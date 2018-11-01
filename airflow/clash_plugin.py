@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 
 class ClashOperator(BaseOperator):
     template_fields = ('cmd', 'cmd_file' )
+    ui_color = '#ceebff'
 
     @apply_defaults
     def __init__(
@@ -67,6 +68,7 @@ class ClashOperator(BaseOperator):
             )
 
 class ClashGroupOperator(BaseOperator):
+    ui_color = '#99d4ff'
 
     @apply_defaults
     def __init__(
