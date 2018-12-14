@@ -446,11 +446,3 @@ class TestJobGroup:
         result = group.wait()
 
         assert not result
-
-
-def test_load_config():
-    os.environ["MACHINE_TYPE"] = "strongmachine"
-
-    config = clash.load_config("tests/clash.yml")
-
-    assert config["machine_type"] == "strongmachine"

@@ -159,8 +159,8 @@ class CloudInitConfig:
         ).render(
             vm_name=self.vm_name,
             zone=self.job_config["zone"],
-            gcs_target=self.gcs_target,
-            gcs_mounts=self.gcs_mounts,
+            image=self.job_config["image"],
+            privileged=self.job_config["privileged"],
         )
 
         env_var_file = "\n".join(
@@ -169,11 +169,11 @@ class CloudInitConfig:
 
         return self.template_env.get_template("cloud-init.yaml.j2").render(
             vm_name=self.vm_name,
-            image=self.job_config["image"],
             clash_runner_script=clash_runner_script,
+            gcs_target=self.gcs_target,
+            gcs_mounts=self.gcs_mounts,
             script=self.script,
             env_var_file=env_var_file,
-            privileged=self.job_config["privileged"],
         )
 
 

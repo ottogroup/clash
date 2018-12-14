@@ -14,7 +14,17 @@ write_files:
   owner: clash
   permissions: 0755
   content: |
+    {% for bucket in gcs_mounts %}
+    if ! [ -x "$(command -v gcsfuse)" ]; then
+      echo 'Error: Could not mount bucket. gcsfuse is not installed.' >&2
+    else
+      mkdir -p {{ gcs_mounts[bucket] }}
+      gcsfuse --implicit-dirs {{ bucket }} {{ gcs_mounts[bucket] }}
+    fi
+    {% endfor %}
+
     {{ script | indent(4, False) }}
+
 - path: "/var/clash.env"
   owner: clash
   permissions: 0755
@@ -28,9 +38,7 @@ write_files:
     Description=Start Clash-Runner
 
     [Service]
-    ExecStart=/usr/bin/sudo -u clash /usr/bin/docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/clash-runner.sh:/var/clash-runner.sh -v /var/script.sh:/var/script.sh --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/clash-runner.sh
-    ExecStop=/usr/bin/sudo -u clash /usr/bin/docker stop clash-runner
-    ExecStopPost=/usr/bin/sudo -u clash /usr/bin/docker rm clash-runner
+    ExecStart=/usr/bin/sudo -u clash bash /var/clash-runner.sh
 
 runcmd:
 - sudo -u clash docker-credential-gcr configure-docker
