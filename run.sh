@@ -31,12 +31,6 @@ function task_integration_test {
   pipenv run pytest tests/test_integration.py
 }
 
-function task_clash {
-  cd python
-  pipenv run python setup.py develop &> setup.log
-  pipenv run clash "$@"
-}
-
 function task_package {
   cd python
   pipenv run python setup.py sdist bdist_wheel
@@ -58,6 +52,14 @@ function task_deploy_airflow_plugin {
       --destination 'tooling/'
 }
 
+function task_run_example {
+  local example=$1
+
+  cd python
+  pipenv run python setup.py develop
+  pipenv run python ../examples/"$example"
+}
+
 
 cmd=$1
 shift || true
@@ -66,10 +68,10 @@ case "$cmd" in
   lint) task_lint ;;
   unit-test) task_unit_test "$@" ;;
   integration-test) task_integration_test ;;
-  clash) task_clash "$@" ;;
   format) task_format ;;
   package) task_package ;;
   release) task_release ;;
   deploy-airflow-plugin) task_deploy_airflow_plugin ;;
+  example) task_run_example "$@" ;;
   *)     task_usage ;;
 esac

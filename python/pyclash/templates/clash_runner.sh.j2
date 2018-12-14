@@ -2,31 +2,28 @@
 
 set -e
 
+function gcloud {
+  docker run google/cloud-sdk:228.0.0-alpine gcloud "$@"
+}
+
 function __trap_clean_up {
   set +e
-  gcloud pubsub topics delete {{ vm_name }} --quiet &>> /tmp/gcloud.log
-  gcloud pubsub subscriptions delete {{ vm_name }} --quiet &>> /tmp/gcloud.log
-  gcloud compute instance-groups managed delete {{ vm_name }} --quiet --zone {{ zone }} &>> /tmp/gcloud.log
+  gcloud pubsub topics delete {{ vm_name }} --quiet
+  gcloud pubsub subscriptions delete {{ vm_name }} --quiet
+  gcloud compute instance-groups managed delete {{ vm_name }} --quiet --zone {{ zone }}
 }
 
 trap __trap_clean_up EXIT
 
-{% for bucket in gcs_mounts %}
-if ! [ -x "$(command -v gcsfuse)" ]; then
-  echo 'Error: Could not mount bucket. gcsfuse is not installed.' >&2
-else
-  mkdir -p {{ gcs_mounts[bucket] }}
-  gcsfuse --implicit-dirs {{ bucket }} {{ gcs_mounts[bucket] }}
-fi
-{% endfor %}
-
 {% for directory in gcs_target %}
-mkdir -p {{ directory }}
+mkdir -p /tmp/{{ directory }}
+target_docker_mounts="$target_docker_mounts -v /tmp/$directory:$directory"
 {% endfor %}
 
 set +e
-bash /var/script.sh
+docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/script.sh:/var/script.sh $target_docker_mounts --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/script.sh
 success=$?
+set -e
 
 {% for directory in gcs_target %}
 if [ -z "$(ls {{ directory }})" ]; then
@@ -35,6 +32,5 @@ else
   gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
 fi
 {% endfor %}
-set -e
 
-gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}" &>> /tmp/gcloud.log
+gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}"
