@@ -36,6 +36,7 @@ write_files:
   content: |
     [Unit]
     Description=Start Clash-Runner
+    After=gcr-wait-online.service
 
     [Service]
     ExecStart=/usr/bin/sudo -u clash bash /var/clash-runner.sh
