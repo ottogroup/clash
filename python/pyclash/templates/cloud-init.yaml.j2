@@ -23,7 +23,19 @@ write_files:
     fi
     {% endfor %}
 
+    {% for directory in gcs_target %}
+    mkdir -p {{ directory }}
+    {% endfor %}
+
     {{ script | indent(4, False) }}
+
+    {% for directory in gcs_target %}
+    if [ -z "$(ls {{ directory }})" ]; then
+      echo "No artifacts found in {{ directory }}"
+    else
+      gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
+    fi
+    {% endfor %}
 
 - path: "/var/clash.env"
   owner: clash
