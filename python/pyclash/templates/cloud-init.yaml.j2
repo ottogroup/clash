@@ -40,6 +40,13 @@ write_files:
 
     [Service]
     ExecStart=/usr/bin/sudo -u clash bash /var/clash-runner.sh
+- path: "/var/utils.sh"
+  owner: clash
+  permissions: 0755
+  content: |
+    function gcloud {
+      docker run google/cloud-sdk:228.0.0-alpine gcloud "$@"
+    }
 
 runcmd:
 - sudo -u clash docker-credential-gcr configure-docker

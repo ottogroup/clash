@@ -2,9 +2,9 @@
 
 set -e
 
-function gcloud {
-  docker run google/cloud-sdk:228.0.0-alpine gcloud "$@"
-}
+if [ -f /var/utils.sh ]; then
+  . /var/utils.sh # import helper functions
+fi
 
 function __trap_clean_up {
   set +e
