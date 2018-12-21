@@ -15,22 +15,9 @@ function __trap_clean_up {
 
 trap __trap_clean_up EXIT
 
-{% for directory in gcs_target %}
-mkdir -p /tmp/{{ directory }}
-target_docker_mounts="$target_docker_mounts -v /tmp/$directory:$directory"
-{% endfor %}
-
 set +e
 docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/script.sh:/var/script.sh $target_docker_mounts --rm --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/script.sh
 success=$?
 set -e
-
-{% for directory in gcs_target %}
-if [ -z "$(ls {{ directory }})" ]; then
-  echo "No artifacts found in {{ directory }}"
-else
-  gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
-fi
-{% endfor %}
 
 gcloud pubsub topics publish {{ vm_name }} --message="{\"status\": $success}"
