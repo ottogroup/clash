@@ -3,8 +3,8 @@ from pyclash.clash import JobConfigBuilder
 
 DEFAULT_JOB_CONFIG = (
     JobConfigBuilder()
-    .project_id("***REMOVED***")
-    .image("eu.gcr.io/***REMOVED***/***REMOVED***:latest")
+    .project_id("your-project")
+    .image("eu.gcr.io/your-project/image:latest")
     .machine_type("n1-standard-1")
     .privileged(True)
     .build()
