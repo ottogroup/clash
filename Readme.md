@@ -3,7 +3,7 @@
 CLASH is an acronym for CLoud bASH. It makes running particulalry easiy to run scalable data processing scripts inside the Google Cloud Platform. It has a simple straightforward cli:
 
 ```
-# fetch python package [2] 
+# fetch python package
 $ pip install pyclash 
 
 # init clash with basic configuration
