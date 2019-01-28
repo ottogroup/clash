@@ -3,8 +3,8 @@
 CLASH is an acronym for CLoud bASH. It makes running particulalry easiy to run scalable data processing scripts inside the Google Cloud Platform. It has a simple straightforward cli:
 
 ```
-# fetch python package
-$ pip install pyclash 
+# fetch python package [https://pypi.org/project/pyclash] 
+$ pip install pyclash #
 
 # init clash with basic configuration
 $ clash init
@@ -16,6 +16,8 @@ hello-world
 ```
   
 Because CLASH uses the [Google Cloud SDK](https://github.com/googleapis/google-cloud-python) you first have to set up your local environment to access GCP. Please visit the [gcloud docs](https://cloud.google.com/sdk/gcloud/reference/auth/) for that matter.
+
+Blog post: https://cloud.google.com/blog/products/management-tools/otto-group-clash-an-open-source-tool-to-run-bash-scripts-directly-on-gcp
 
 ### This repistory is divided into the following two packages:
  - [python: Contains the code of CLASH python package including a cli](python/README.md)
