@@ -527,5 +527,84 @@ class Job:
     def is_group(self):
         return False
 
-if __name__ == "__main__":
-    main()
+
+def attach_to(job):
+    result = job.attach()
+    sys.exit(result["status"])
+
+
+def ensure_config(config_file):
+    if not os.path.isfile(config_file):
+        print(f"Creating basic configuration {config_file}...")
+        with open(config_file, "w") as f:
+            yaml.dump(DEFAULT_JOB_CONFIG, f, default_flow_style=False)
+        raw_input("Press enter to review the configuration file.")
+        EDITOR = os.environ.get("EDITOR", "vim")
+        call([EDITOR, config_file])
+    else:
+        print(f"Using configuration file {config_file}.")
+
+
+def from_env(value, key):
+    return os.getenv(key, value)
+
+
+def load_config(config_file):
+    if not os.path.isfile(config_file):
+        raise ValueError(
+            "No configration file found. Please create one (e.g. by using clash init)"
+        )
+
+    template_env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath="."))
+    template_env.filters["from_env"] = from_env
+    rendered_config = template_env.get_template(config_file).render()
+    return yaml.load(rendered_config)
+
+
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
+@click.option("--config", default="clash.yml")
+def init(config):
+    ensure_config(config)
+    print("Clash is now initialized!")
+
+
+@click.argument("script")
+@click.option("--detach", is_flag=True)
+@click.option("--from-file", is_flag=True)
+@click.option("--config", default="clash.yml")
+@click.option("--env", "-e", multiple=True)
+@cli.command()
+def run(script, detach, from_file, config, env, gcs_target, gcs_mount):
+    logging.basicConfig(level=logging.ERROR)
+
+    env_vars = {}
+    for e in env:
+        var, value = e.split("=")
+        env_vars[var] = value
+
+    job_config = load_config(config)
+    job = Job(job_config)
+    with Halo(text="Creating job", spinner="dots") as spinner:
+        if from_file:
+            job.run_file(script, env_vars, gcs_targets, gcs_mounts)
+        else:
+            job.run(script, env_vars, gcs_targets, gcs_mounts)
+
+    if not detach:
+        attach_to(job)
+    else:
+        print(job.name)
+
+
+@click.argument("job_name")
+@click.option("--config", default="clash.yml")
+@cli.command()
+def attach(job_name, config):
+    job_config = load_config(config)
+    job = Job(job_config, name=job_name)
+    attach_to(job)
