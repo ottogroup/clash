@@ -3,7 +3,7 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh init | lint | build | unit-test | integration-test | clash | format | package | release | deploy-airflow-plugin'
+  echo 'Usage: ./run.sh init | lint | build | unit-test | format | example | package | release | deploy-airflow-plugin'
   exit 1
 }
 
@@ -23,12 +23,6 @@ function task_unit_test {
   cd python
   pipenv run python setup.py develop
   pipenv run pytest tests/test_clash.py "$@"
-}
-
-function task_integration_test {
-  cd python
-  docker build -f tests/Dockerfile -t 'test-cloudsdk:latest' tests/
-  pipenv run pytest tests/test_integration.py
 }
 
 function task_package {
