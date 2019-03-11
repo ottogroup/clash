@@ -1,4 +1,4 @@
-:rocket: CLASH is a tool for running Bash scripts inside the Google Cloud Platform :rocket:
+:rocket: CLASH is a tool for running Bash scripts on the Google Cloud Platform :rocket:
 
 CLASH is an acronym for CLoud bASH. Its purpose is to provide an easy-to-use Python API / Airflow Operator for running Bash scripts on the *Compute Engine*.
 
