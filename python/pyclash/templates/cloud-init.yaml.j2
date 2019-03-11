@@ -14,6 +14,7 @@ write_files:
   owner: clash
   permissions: 0755
   content: |
+    set -e
     {% for bucket in gcs_mounts %}
     if ! [ -x "$(command -v gcsfuse)" ]; then
       echo 'Error: Could not mount bucket. gcsfuse is not installed.' >&2
@@ -32,6 +33,7 @@ write_files:
     {% for directory in gcs_target %}
     if [ -z "$(ls {{ directory }})" ]; then
       echo "No artifacts found in {{ directory }}"
+      exit 1
     else
       gsutil cp -r {{ directory }}/* gs://{{ gcs_target[directory] }}
     fi
