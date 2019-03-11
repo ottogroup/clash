@@ -111,7 +111,7 @@ class TestMachineConfig:
         machine_config = config.to_dict()
 
         assert machine_config["metadata"]["items"][0]["key"] == "user-data"
-        cloud_init = yaml.load(machine_config["metadata"]["items"][0]["value"])
+        cloud_init = yaml.safe_load(machine_config["metadata"]["items"][0]["value"])
         assert cloud_init["users"][0]["name"] == "clash"
 
     def test_config_contains_machine_type(self):

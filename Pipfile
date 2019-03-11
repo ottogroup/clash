@@ -10,7 +10,6 @@ google-cloud-pubsub = "*"
 google-cloud-logging = "*"
 future-fstrings = "*"
 requests = ">=2.20.0"
-pyyaml = ">=3.13"
 
 [dev-packages]
 pytest = "*"
@@ -19,6 +18,10 @@ mock = "*"
 setuptools = "*"
 wheel = "*"
 twine = "*"
+pyyaml = ">=4.2b1"
 
 [requires]
 python_version = "2.7"
+
+[pipenv]
+allow_prereleases = true
