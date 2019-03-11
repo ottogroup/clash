@@ -4,22 +4,21 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pytest = "*"
-"jinja2" = "*"
+jinja2 = "*"
 google-api-python-client = "*"
-pyyaml = "*"
-docker = "*"
-click = "*"
 google-cloud-pubsub = "*"
 google-cloud-logging = "*"
-halo = "*"
+future-fstrings = "*"
+requests = ">=2.20.0"
+pyyaml = ">=3.13"
+
+[dev-packages]
+pytest = "*"
+docker = "*"
+mock = "*"
 setuptools = "*"
 wheel = "*"
 twine = "*"
-future-fstrings = "*"
-mock = "*"
-
-[dev-packages]
 
 [requires]
 python_version = "2.7"

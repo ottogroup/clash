@@ -7,10 +7,6 @@ function task_usage {
   exit 1
 }
 
-function task_init {
-  pipenv install
-}
-
 function task_lint {
   exit 0
 }
@@ -58,7 +54,6 @@ function task_run_example {
 cmd=$1
 shift || true
 case "$cmd" in
-  init) task_init ;;
   lint) task_lint ;;
   unit-test) task_unit_test "$@" ;;
   integration-test) task_integration_test ;;

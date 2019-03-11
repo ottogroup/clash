@@ -6,11 +6,10 @@ version = "0.0.5"
 install_requires = [
     "jinja2",
     "google-api-python-client>=1.7.4",
-    "pyyaml",
-    "click",
+    "pyyaml>=3.13",
+    "requests>=2.20.0",
     "google-cloud-pubsub>=0.38.0",
     "google-cloud-logging>=1.7.0",
-    "halo",
     "future-fstrings",
 ]
 
