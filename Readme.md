@@ -11,7 +11,7 @@ $ pip install pyclash
 ```
 
 ```from pyclash import clash
-from pyclash.clash import JobConfigBuilder
+from pyclash.clash import JobConfigBuilder, Job
 
 DEFAULT_JOB_CONFIG = (
     JobConfigBuilder()
@@ -22,11 +22,11 @@ DEFAULT_JOB_CONFIG = (
     .build()
 )
 
-job = clash.Job(job_config=DEFAULT_JOB_CONFIG, name_prefix="test")
+job = Job(job_config=DEFAULT_JOB_CONFIG, name_prefix="test")
 job.run("echo hello")
 
 result = job.attach()
-if result["status"] != 0
+if result["status"] != 0:
     raise ValueError(
         "The command failed with status code {}".format(result["status"])
     )
@@ -38,6 +38,8 @@ COMPOSER_ENVIRONMENT="mycomposer-env" ./run.sh deploy-airflow-plugin
 ```
 Note that the pyclash module must be available to Airflow.
 ```
+from airflow.operators import ComputeEngineJobOperator
+
 DEFAULT_JOB_CONFIG = (
     JobConfigBuilder()
     .project_id(PROJECT_ID)
