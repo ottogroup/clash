@@ -92,8 +92,6 @@ class ComputeEngineJobGroupOperator(BaseOperator):
 class ClashPlugin(AirflowPlugin):
     name = "clash_plugin"
     operators = [
-        ClashOperator,
-        ClashGroupOperator,
         ComputeEngineJobOperator,
         ComputeEngineJobGroupOperator
     ]
