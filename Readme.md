@@ -22,9 +22,11 @@ On the other hand, Clash might still help to drastically reduce costs by offerin
 Because Clash uses the [Google Cloud SDK](https://github.com/googleapis/google-cloud-python), you first have to set up your local environment to access GCP. Please visit the [gcloud docs](https://cloud.google.com/sdk/gcloud/reference/auth/) for that matter. In addition, Clash requires the following IAM roles to run correctly:
 
 * roles/pubsub.editor # Clash uses [PubSub](https://cloud.google.com/pubsub/docs/) to communicate with its VMs
-* roles/compute.instanceAdmin.* # Clash needs to be able to create and delete custom VMs on the project
+* roles/compute.instanceAdmin.* # Clash needs to be able to create custom VMs on the project
 
-If Clash should create VMs that are configured to run as a service account, one must also grant the roles/iam.serviceAccountUser role.
+ If Clash should create VMs that are configured to run as a service account, one must also grant the roles/iam.serviceAccountUser role. 
+ 
+ Note that *Clash VMs also need to be able to delete themselves and delete / publish to PubSub topics* in order to work correctly.
 
 ## Usage
 
