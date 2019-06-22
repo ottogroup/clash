@@ -3,7 +3,7 @@
 set -e
 
 function task_usage {
-  echo 'Usage: ./run.sh init | lint | build | unit-test | format | example | package | release | deploy-airflow-plugin'
+  echo 'Usage: ./run.sh init | lint | build | unit-test | format | integration-test | package | release | deploy-airflow-plugin'
   exit 1
 }
 
@@ -36,18 +36,21 @@ function task_deploy_airflow_plugin {
    echo 'Please set COMPOSER_ENVIRONMENT'
    exit 1
   fi
+
+  if [ -z "$COMPOSER_LOCATION" ]; then
+   echo 'Please set COMPOSER_LOCATION'
+   exit 1
+  fi
   gcloud composer environments storage plugins import --environment "$COMPOSER_ENVIRONMENT" \
-      --location 'europe-west1' \
+      --location "$COMPOSER_LOCATION" \
       --source airflow/clash_plugin.py \
       --destination 'tooling/'
 }
 
-function task_run_example {
-  local example=$1
-
+function task_integration_test {
   cd python
   pipenv run python setup.py develop
-  pipenv run python ../examples/"$example"
+  pipenv run python ../examples/job.py
 }
 
 
@@ -61,6 +64,6 @@ case "$cmd" in
   package) task_package ;;
   release) task_release ;;
   deploy-airflow-plugin) task_deploy_airflow_plugin ;;
-  example) task_run_example "$@" ;;
+  integration-test) task_integration_test "$@" ;;
   *)     task_usage ;;
 esac

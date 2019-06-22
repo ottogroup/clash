@@ -376,7 +376,7 @@ class Job:
             },
         ).execute()
 
-    def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}):
+    def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False):
         """
         Runs a script which is given as a string.
 
@@ -409,7 +409,11 @@ class Job:
 
         self.started = True
 
-    def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}):
+        if wait_for_result:
+            return self.attach()
+        return None
+
+    def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False):
         """
         Runs a script which is given as a file.
 
@@ -421,7 +425,7 @@ class Job:
         """
         with open(script_file, "r") as f:
             script = f.read()
-        self.run(script, env_vars, gcs_target)
+        return self.run(script, wait_for_result, env_vars, gcs_target)
 
     def _create_machine_config(self, script, env_vars, gcs_target, gcs_mounts):
         cloud_init = CloudInitConfig(

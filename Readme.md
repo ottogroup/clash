@@ -36,29 +36,29 @@ $ pip install pyclash
 from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 
-DEFAULT_JOB_CONFIG = (
+JOB_CONFIG = (
     JobConfigBuilder()
-    .project_id("your-project")
-    .image("eu.gcr.io/your-project/image:latest")
+    .project_id("my-gcp-project")
+    .image("google/cloud-sdk:latest")
     .machine_type("n1-standard-1")
-    .privileged(True)
+    .subnetwork("default")
+    .preemptible(True)
     .build()
 )
 
-job = Job(job_config=DEFAULT_JOB_CONFIG, name_prefix="test")
-job.run("echo hello")
+result = Job(job_config=JOB_CONFIG, name_prefix="myjob").run(
+    "echo 'hello world'", wait_for_result=True
+)
 
-result = job.attach()
 if result["status"] != 0:
-    raise ValueError(
-        "The command failed with status code {}".format(result["status"])
-    )
+    raise ValueError(f"The command failed with status code {result['status']}")
 ```
 
 One can also use Clash in the [Cloud Composer](https://cloud.google.com/composer/). To deploy the operators, run
 
 ```Bash
-COMPOSER_ENVIRONMENT="mycomposer-env" ./run.sh deploy-airflow-plugin
+COMPOSER_ENVIRONMENT="mycomposer-env" \
+COMPOSER_LOCATION="europe-west1" ./run.sh deploy-airflow-plugin
 ```
 
 Note that the pyclash package must be available on the Composer in order to use the Clash operators (the  [official documentation](https://cloud.google.com/composer/docs/how-to/using/installing-python-dependencies) describes how to install custom packages from PyPi). The following example shows how to run jobs using Clash's *ComputeEngineJobOperator*:
@@ -66,13 +66,12 @@ Note that the pyclash package must be available on the Composer in order to use 
 ```Python
 from airflow.operators import ComputeEngineJobOperator
 
-DEFAULT_JOB_CONFIG = (
+JOB_CONFIG = (
     JobConfigBuilder()
-    .project_id(PROJECT_ID)
-    .image(f"eu.gcr.io/your-project/image:latest")
+    .project_id("my-gcp-project")
+    .image("google/cloud-sdk:latest")
     .machine_type("n1-standard-32")
-    .privileged(True)
-    .preemptible(True)
+    .subnetwork("default")
     .build()
 )
 
@@ -84,8 +83,8 @@ with DAG(
 ) as dag:
     task_run_script = ComputeEngineJobOperator(
         cmd="echo hello",
-        job_config=DEFAULT_JOB_CONFIG,
-        name_prefix="prefix",
+        job_config=JOB_CONFIG,
+        name_prefix="myjob",
         task_id="run_script_task"
     )
 ```
