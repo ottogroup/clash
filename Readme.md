@@ -1,16 +1,39 @@
-:rocket: CLASH is a tool for running Bash scripts on the Google Cloud Platform :rocket:
 
-CLASH is an acronym for CLoud bASH. Its purpose is to provide an easy-to-use Python API / Airflow Operator for running Bash scripts on the *Compute Engine*.
+# Clash
+> **WARNING**: This is a very young project. Although Clash is already used in production environments, the  Python API is still an *alpha release* and might change in the near future.
 
-Because CLASH uses the [Google Cloud SDK](https://github.com/googleapis/google-cloud-python), you first have to set up your local environment to access GCP. Please visit the [gcloud docs](https://cloud.google.com/sdk/gcloud/reference/auth/) for that matter.
+*Clash* is a simple Python library for running jobs on the [Google Compute Engine](https://cloud.google.com/compute/). Typical use cases are batch jobs which require very specific hardware configurations at runtime (e.g. multiple GPUs for model training). The library offers the following features:
 
-## Example (Python API)
+* Automatic management of compute resources (allocation and deallocation)
+* Definition of jobs via custom docker images
+* Fine-grained cost-control by optionally using [preemptible VMs](https://cloud.google.com/preemptible-vms/)
+* An easy-to-use Python API including operators for [Apache Airflow](https://airflow.apache.org/)
+
+## Why Clash?
+
+There are several ways for running jobs on the *Google Cloud Platform* (GCP) where each one comes with its pros and cons. For example, [Google's ML engine](https://cloud.google.com/ml-engine/) is now able to run dockerized jobs as well and should definitely be considered before using Clash, because of its excellent integration in the GCP ecosystem. In fact, the development of Clash started at a point in time when the options for running jobs on GCP were very limited.
+
+On the other hand, Clash might still help to drastically reduce costs by offering the option to use preemptible VMs. In practice, one can usually make jobs robust towards sudden preemptions, for example, by continuously storing checkpoints. Clash automatically attempts to restart preempted machines and, thus, jobs can load their latest checkpoint and just continue where they have been interrupted. This way, we are successfully saving up to 80% of our compute costs.
+
+## Requirements
+
+* Python >= 2.7
+
+Because Clash uses the [Google Cloud SDK](https://github.com/googleapis/google-cloud-python), you first have to set up your local environment to access GCP. Please visit the [gcloud docs](https://cloud.google.com/sdk/gcloud/reference/auth/) for that matter. In addition, Clash requires the following IAM roles to run correctly:
+
+* roles/pubsub.editor # Clash uses [PubSub](https://cloud.google.com/pubsub/docs/) to communicate with its VMs
+* roles/compute.instanceAdmin.* # Clash needs to be able to create and delete custom VMs on the project
+
+If Clash should create VMs that are configured to run as a service account, one must also grant the roles/iam.serviceAccountUser role.
+
+## Usage
 
 ```
 $ pip install pyclash
 ```
 
-```from pyclash import clash
+```Python
+from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 
 DEFAULT_JOB_CONFIG = (
@@ -32,12 +55,15 @@ if result["status"] != 0:
     )
 ```
 
-## Example (Airflow / Cloud Composer)
-```
+One can also use Clash in the [Cloud Composer](https://cloud.google.com/composer/). To deploy the operators, run
+
+```Bash
 COMPOSER_ENVIRONMENT="mycomposer-env" ./run.sh deploy-airflow-plugin
 ```
-Note that the pyclash module must be available to Airflow.
-```
+
+Note that the pyclash package must be available on the Composer in order to use the Clash operators (the  [official documentation](https://cloud.google.com/composer/docs/how-to/using/installing-python-dependencies) describes how to install custom packages from PyPi). The following example shows how to run jobs using Clash's *ComputeEngineJobOperator*:
+
+```Python
 from airflow.operators import ComputeEngineJobOperator
 
 DEFAULT_JOB_CONFIG = (
