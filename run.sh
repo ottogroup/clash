@@ -48,6 +48,11 @@ function task_deploy_airflow_plugin {
 }
 
 function task_integration_test {
+  if [ -z "$GCP_PROJECT_ID" ]; then
+   echo 'Please set GCP_PROJECT_ID'
+   exit 1
+  fi
+
   cd python
   pipenv run python setup.py develop
   pipenv run python ../examples/job.py

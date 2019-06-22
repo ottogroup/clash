@@ -1,8 +1,9 @@
 from pyclash.clash import JobConfigBuilder, Job
+import os
 
 JOB_CONFIG = (
     JobConfigBuilder()
-    .project_id("your-gcp-project")
+    .project_id(os.environ['GCP_PROJECT_ID'])
     .image("google/cloud-sdk:latest")
     .machine_type("n1-standard-1")
     .subnetwork("default")

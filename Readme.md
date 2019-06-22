@@ -87,3 +87,13 @@ with DAG(
         task_id="run_script_task"
     )
 ```
+
+## Contributing
+
+The best way to start working on Clash is to first install all the dependencies and run the tests:
+
+```Bash
+pipenv install --dev
+./run.sh unit-test
+GCP_PROJECT_ID='your-project-id' ./run.sh integration-test
+```
