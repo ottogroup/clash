@@ -54,7 +54,7 @@ if result["status"] != 0:
     raise ValueError(f"The command failed with status code {result['status']}")
 ```
 
-One can also use Clash in the [Cloud Composer](https://cloud.google.com/composer/). To deploy the operators, run
+By default, Clash runs VMs with the [Compute Engine default service account](https://cloud.google.com/compute/docs/access/service-accounts). One can also use Clash in the [Cloud Composer](https://cloud.google.com/composer/). To deploy the operators, run
 
 ```Bash
 COMPOSER_ENVIRONMENT="mycomposer-env" \
