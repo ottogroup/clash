@@ -1,4 +1,3 @@
-from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 
 JOB_CONFIG = (
