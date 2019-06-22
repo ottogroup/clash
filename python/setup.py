@@ -4,26 +4,22 @@ from setuptools import setup, find_packages
 version = "0.0.6"
 
 install_requires = [
-    "jinja2",
-    "google-api-python-client>=1.7.4",
-    "pyyaml>=3.13",
+    "google-cloud-pubsub>=0.42.1",
+    "google-api-python-client>=1.7.9",
+    "google-cloud-logging>=1.11.0",
     "requests>=2.20.0",
-    "google-cloud-pubsub>=0.38.0",
-    "google-cloud-logging>=1.7.0",
-    "future-fstrings",
+    "jinja2>=2.10.1",
+    "urllib3>=1.24.2",
 ]
-
-tests_require = ["pytest", "docker", "mock"]
 
 setup(
     name="pyclash",
     version=version,
-    description="Running bash scripts on the Google Compute Engine",
+    description="Running jobs on the Google Compute Engine",
     author="Otto Group",
     license="Apache License, Version 2.0",
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
     install_requires=install_requires,
-    entry_points={"console_scripts": ["clash = pyclash.clash:cli"]},
 )
