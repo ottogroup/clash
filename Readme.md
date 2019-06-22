@@ -36,7 +36,7 @@ $ pip install pyclash
 from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 
-job_config = (
+JOB_CONFIG = (
     JobConfigBuilder()
     .project_id("my-gcp-project")
     .image("google/cloud-sdk:latest")
@@ -46,7 +46,7 @@ job_config = (
     .build()
 )
 
-result = Job(job_config=job_config, name_prefix="myjob").run(
+result = Job(job_config=JOB_CONFIG, name_prefix="myjob").run(
     "echo 'hello world'", wait_for_result=True
 )
 
@@ -67,7 +67,7 @@ Note that the pyclash package must be available to the Composer in order to use 
 from airflow.operators import ComputeEngineJobOperator
 from airflow import DAG
 
-job_config = (
+JOB_CONFIG = (
     JobConfigBuilder()
     .project_id("my-gcp-project")
     .image("google/cloud-sdk:latest")
@@ -83,7 +83,7 @@ with DAG(
 ) as dag:
     task_run_script = ComputeEngineJobOperator(
         cmd="echo hello",
-        job_config=job_config,
+        job_config=JOB_CONFIG,
         name_prefix="myjob",
         task_id="run_script_task"
     )

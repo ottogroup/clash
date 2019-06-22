@@ -3,7 +3,7 @@ from pyclash.clash import JobConfigBuilder, Job
 
 JOB_CONFIG = (
     JobConfigBuilder()
-    .project_id("corded-terrain-224220")
+    .project_id("your-gcp-project")
     .image("google/cloud-sdk:latest")
     .machine_type("n1-standard-1")
     .subnetwork("default")
