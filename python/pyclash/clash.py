@@ -1,5 +1,3 @@
-# -*- coding: future_fstrings -*-
-from __future__ import print_function
 import argparse
 import logging
 import uuid
@@ -376,7 +374,9 @@ class Job:
             },
         ).execute()
 
-    def run(self, script, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False):
+    def run(
+        self, script, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False
+    ):
         """
         Runs a script which is given as a string.
 
@@ -397,7 +397,9 @@ class Job:
         self.job_status_subscription = None
         try:
             self.job_status_topic = self._create_status_topic(publisher)
-            self.job_status_subscription = self._create_status_subscription(publisher, subscriber)
+            self.job_status_subscription = self._create_status_subscription(
+                publisher, subscriber
+            )
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
         except Exception as ex:
@@ -413,7 +415,14 @@ class Job:
             return self.attach()
         return None
 
-    def run_file(self, script_file, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False):
+    def run_file(
+        self,
+        script_file,
+        env_vars={},
+        gcs_target={},
+        gcs_mounts={},
+        wait_for_result=False,
+    ):
         """
         Runs a script which is given as a file.
 
@@ -448,7 +457,9 @@ class Job:
             callback(data["status"])
             message.ack()
 
-        self.gcloud.get_subscriber().subscribe(self.job_status_subscription, pubsub_callback)
+        self.gcloud.get_subscriber().subscribe(
+            self.job_status_subscription, pubsub_callback
+        )
 
     def clean_up(self):
         """
@@ -507,9 +518,7 @@ class Job:
 
     def _create_status_subscription(self, publisher, subscriber):
         project_id = self.job_config["project_id"]
-        topics = [
-            path.name for path in publisher.list_topics(f"projects/{project_id}")
-        ]
+        topics = [path.name for path in publisher.list_topics(f"projects/{project_id}")]
 
         if self.job_status_topic not in topics:
             raise ValueError(f"Could not find status topic for job {self.name}")

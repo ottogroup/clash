@@ -1,4 +1,3 @@
-# -*- coding: future_fstrings -*-
 from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 

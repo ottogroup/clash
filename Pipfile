@@ -7,7 +7,6 @@ name = "pypi"
 google-api-python-client = "*"
 google-cloud-pubsub = "*"
 google-cloud-logging = "*"
-future-fstrings = "*"
 requests = ">=2.20.0"
 jinja2 = ">=2.10.1"
 urllib3 = ">=1.24.2"
@@ -20,9 +19,11 @@ setuptools = "*"
 wheel = "*"
 twine = "*"
 pyyaml = ">=4.2b1"
+black = "*"
+pylint = "*"
 
 [requires]
-python_version = "2.7"
+python_version = "3.7"
 
 [pipenv]
 allow_prereleases = true

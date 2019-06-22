@@ -17,7 +17,7 @@ On the other hand, Clash might still help to drastically reduce costs by offerin
 
 ## Requirements
 
-* Python >= 2.7
+* Python >= 3.7
 
 Because Clash uses the [Google Cloud SDK](https://github.com/googleapis/google-cloud-python), you first have to set up your local environment to access GCP. Please visit the [gcloud docs](https://cloud.google.com/sdk/gcloud/reference/auth/) for that matter. In addition, Clash requires the following IAM roles to run correctly:
 
@@ -36,7 +36,7 @@ $ pip install pyclash
 from pyclash import clash
 from pyclash.clash import JobConfigBuilder, Job
 
-JOB_CONFIG = (
+job_config = (
     JobConfigBuilder()
     .project_id("my-gcp-project")
     .image("google/cloud-sdk:latest")
@@ -46,7 +46,7 @@ JOB_CONFIG = (
     .build()
 )
 
-result = Job(job_config=JOB_CONFIG, name_prefix="myjob").run(
+result = Job(job_config=job_config, name_prefix="myjob").run(
     "echo 'hello world'", wait_for_result=True
 )
 
@@ -61,12 +61,13 @@ COMPOSER_ENVIRONMENT="mycomposer-env" \
 COMPOSER_LOCATION="europe-west1" ./run.sh deploy-airflow-plugin
 ```
 
-Note that the pyclash package must be available on the Composer in order to use the Clash operators (the  [official documentation](https://cloud.google.com/composer/docs/how-to/using/installing-python-dependencies) describes how to install custom packages from PyPi). The following example shows how to run jobs using Clash's *ComputeEngineJobOperator*:
+Note that the pyclash package must be available to the Composer in order to use the Clash operators (the  [official documentation](https://cloud.google.com/composer/docs/how-to/using/installing-python-dependencies) describes how to install custom packages from PyPi). The following example shows how to run jobs using Clash's *ComputeEngineJobOperator*:
 
 ```Python
 from airflow.operators import ComputeEngineJobOperator
+from airflow import DAG
 
-JOB_CONFIG = (
+job_config = (
     JobConfigBuilder()
     .project_id("my-gcp-project")
     .image("google/cloud-sdk:latest")
@@ -75,7 +76,6 @@ JOB_CONFIG = (
     .build()
 )
 
-
 with DAG(
     "dag_id",
     start_date=datetime(2018, 10, 1),
@@ -83,7 +83,7 @@ with DAG(
 ) as dag:
     task_run_script = ComputeEngineJobOperator(
         cmd="echo hello",
-        job_config=JOB_CONFIG,
+        job_config=job_config,
         name_prefix="myjob",
         task_id="run_script_task"
     )

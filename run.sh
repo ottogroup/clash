@@ -8,11 +8,11 @@ function task_usage {
 }
 
 function task_lint {
-  exit 0
+  pipenv run pylint python/
 }
 
 function task_format {
-  black python/
+  pipenv run black python/
 }
 
 function task_unit_test {
@@ -64,6 +64,5 @@ case "$cmd" in
   package) task_package ;;
   release) task_release ;;
   deploy-airflow-plugin) task_deploy_airflow_plugin ;;
-  integration-test) task_integration_test "$@" ;;
   *)     task_usage ;;
 esac
