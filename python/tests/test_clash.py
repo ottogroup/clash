@@ -33,6 +33,7 @@ TEST_JOB_CONFIG = {
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
     "machine_type": "n1-standard-1",
+    "service_account": "default",
     "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
     "scopes": [
         "https://www.googleapis.com/auth/bigquery",
@@ -152,6 +153,17 @@ class TestMachineConfig:
         machine_config = manifest.to_dict()
 
         assert not machine_config["scheduling"]["preemptible"]
+
+    def test_config_contains_custom_service_account(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        job_config["service_account"] = "myaccount@foo.bar"
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config["serviceAccounts"][0]["email"] == "myaccount@foo.bar"
 
 
 class TestJob:

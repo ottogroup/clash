@@ -27,6 +27,7 @@ DEFAULT_JOB_CONFIG = {
     "region": "europe-west1",
     "subnetwork": "default-europe-west1",
     "machine_type": "n1-standard-1",
+    "service_account": "default",
     "disk_image": {"project": "gce-uefi-images", "family": "cos-stable"},
     "scopes": [
         "https://www.googleapis.com/auth/bigquery",
@@ -73,6 +74,10 @@ class JobConfigBuilder:
 
     def machine_type(self, machine_type):
         self.config["machine_type"] = machine_type
+        return self
+
+    def service_account(self, service_account):
+        self.config["service_account"] = service_account
         return self
 
     def disk_image(self, disk_image):
@@ -216,6 +221,7 @@ class MachineConfig:
                 scopes=self.job_config["scopes"],
                 subnetwork=self.job_config["subnetwork"],
                 preemptible=self.job_config["preemptible"],
+                service_account=self.job_config["service_account"],
             )
         )
 

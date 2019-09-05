@@ -39,7 +39,7 @@
   },
   "serviceAccounts": [
     {
-      "email": "default",
+      "email": "{{ service_account }}",
       "scopes": [
         {% for scope in scopes %}
           "{{ scope }}"{{ "," if not loop.last }}
