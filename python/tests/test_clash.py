@@ -165,6 +165,16 @@ class TestMachineConfig:
 
         assert machine_config["serviceAccounts"][0]["email"] == "myaccount@foo.bar"
 
+    def test_config_contains_default_service_account_by_default(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config["serviceAccounts"][0]["email"] == "default"
+
 
 class TestJob:
     def setup(self):
