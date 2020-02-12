@@ -41,6 +41,7 @@ TEST_JOB_CONFIG = {
         "https://www.googleapis.com/auth/bigquery",
         "https://www.googleapis.com/auth/compute",
     ],
+    "allowed_persistence_regions": ["europe-west1"],
 }
 
 
@@ -179,14 +180,14 @@ class TestMachineConfig:
 
     def test_config_contains_labels(self):
         job_config = copy.deepcopy(TEST_JOB_CONFIG)
-        job_config["labels"] = {"customer" : "dummy"}
+        job_config["labels"] = {"customer": "dummy"}
         manifest = clash.MachineConfig(
             self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
         )
 
         machine_config = manifest.to_dict()
 
-        assert machine_config["labels"] == {"customer" : "dummy"}
+        assert machine_config["labels"] == {"customer": "dummy"}
 
     def test_config_empty_labels(self):
         job_config = copy.deepcopy(TEST_JOB_CONFIG)
@@ -197,6 +198,7 @@ class TestMachineConfig:
         machine_config = manifest.to_dict()
 
         assert machine_config["labels"] == {}
+
 
 class TestJob:
     def setup(self):
@@ -276,12 +278,9 @@ class TestJob:
 
         self.gcloud.get_publisher().create_topic.assert_called_with(
             f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234",
-            message_storage_policy=MessageStoragePolicy(allowed_persistence_regions=[
-                    "europe-north1",
-                    "europe-west1",
-                    "europe-west3",
-                    "europe-west4",
-                ])
+            message_storage_policy=MessageStoragePolicy(
+                allowed_persistence_regions=["europe-west1"]
+            ),
         )
 
     def test_attaching_fails_if_there_is_not_a_running_job(self):

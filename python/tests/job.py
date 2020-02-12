@@ -14,10 +14,13 @@ DEFAULT_JOB_CONFIG = (
 job = Job(job_config=DEFAULT_JOB_CONFIG, name_prefix="test")
 job.run("echo hello")
 
+
 def logging_callback(job):
     def log(status):
         print(f"logger{job.name}")
+
     return log
+
 
 job.on_finish(logging_callback(job))
 

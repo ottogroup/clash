@@ -38,6 +38,12 @@ DEFAULT_JOB_CONFIG = {
         "https://www.googleapis.com/auth/monitoring",
         "https://www.googleapis.com/auth/pubsub",
     ],
+    "allowed_persistence_regions": [
+        "europe-north1",
+        "europe-west1",
+        "europe-west3",
+        "europe-west4",
+    ],
 }
 
 
@@ -525,15 +531,16 @@ class Job:
         job_status_topic = publisher.topic_path(
             self.job_config["project_id"], self.name
         )
+
+        message_storage_policy = (
+            lambda regions: MessageStoragePolicy(allowed_persistence_regions=regions)
+            if regions
+            else None
+        )
         publisher.create_topic(
             job_status_topic,
-            message_storage_policy=MessageStoragePolicy(
-                allowed_persistence_regions=[
-                    "europe-north1",
-                    "europe-west1",
-                    "europe-west3",
-                    "europe-west4",
-                ]
+            message_storage_policy=message_storage_policy(
+                self.job_config.get("allowed_persistence_regions")
             ),
         )
         return job_status_topic
