@@ -46,5 +46,10 @@
         {% endfor %}
       ]
     }
-  ]
+  ],
+  "labels": {
+     {% for k,v in labels.items() %}
+        "{{ k }}" : "{{ v }}"{{ "," if not loop.last }}
+     {% endfor %}
+  }
 }

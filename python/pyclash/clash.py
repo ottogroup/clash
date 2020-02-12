@@ -14,6 +14,7 @@ from collections import namedtuple
 import jinja2
 import googleapiclient.discovery
 from google.cloud import pubsub_v1 as pubsub
+from google.cloud.pubsub_v1.types import MessageStoragePolicy
 from google.cloud import logging as glogging
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,10 @@ class JobConfigBuilder:
 
     def scopes(self, scopes):
         self.config["scopes"] = scopes
+        return self
+
+    def labels(self, labels):
+        self.config["labels"] = labels
         return self
 
     def build(self):
@@ -222,6 +227,7 @@ class MachineConfig:
                 subnetwork=self.job_config["subnetwork"],
                 preemptible=self.job_config["preemptible"],
                 service_account=self.job_config["service_account"],
+                labels=self.job_config.get("labels", {}),
             )
         )
 
@@ -519,7 +525,17 @@ class Job:
         job_status_topic = publisher.topic_path(
             self.job_config["project_id"], self.name
         )
-        publisher.create_topic(job_status_topic)
+        publisher.create_topic(
+            job_status_topic,
+            message_storage_policy=MessageStoragePolicy(
+                allowed_persistence_regions=[
+                    "europe-north1",
+                    "europe-west1",
+                    "europe-west3",
+                    "europe-west4",
+                ]
+            ),
+        )
         return job_status_topic
 
     def _create_status_subscription(self, publisher, subscriber):

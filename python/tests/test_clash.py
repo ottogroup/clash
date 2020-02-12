@@ -10,6 +10,8 @@ import sys
 import contextlib
 import os
 
+from google.cloud.pubsub_v1.types import MessageStoragePolicy
+
 import pyclash
 from pyclash import clash
 
@@ -59,7 +61,7 @@ class CloudSdkStub:
         self.publisher.topic_path.side_effect = lambda project, name: "{}/{}".format(
             project, name
         )
-        self.publisher.create_topic.side_effect = lambda topic: self.topics.append(
+        self.publisher.create_topic.side_effect = lambda topic, message_storage_policy: self.topics.append(
             Topic(name=topic)
         )
 
@@ -175,6 +177,26 @@ class TestMachineConfig:
 
         assert machine_config["serviceAccounts"][0]["email"] == "default"
 
+    def test_config_contains_labels(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        job_config["labels"] = {"customer" : "dummy"}
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config["labels"] == {"customer" : "dummy"}
+
+    def test_config_empty_labels(self):
+        job_config = copy.deepcopy(TEST_JOB_CONFIG)
+        manifest = clash.MachineConfig(
+            self.gcloud.get_compute_client(), "_", self.cloud_init, job_config
+        )
+
+        machine_config = manifest.to_dict()
+
+        assert machine_config["labels"] == {}
 
 class TestJob:
     def setup(self):
@@ -253,7 +275,13 @@ class TestJob:
         job.run("")
 
         self.gcloud.get_publisher().create_topic.assert_called_with(
-            f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234"
+            f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234",
+            message_storage_policy=MessageStoragePolicy(allowed_persistence_regions=[
+                    "europe-north1",
+                    "europe-west1",
+                    "europe-west3",
+                    "europe-west4",
+                ])
         )
 
     def test_attaching_fails_if_there_is_not_a_running_job(self):
