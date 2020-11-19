@@ -200,6 +200,17 @@ class TestMachineConfig:
         assert machine_config["labels"] == {}
 
 
+def test_argument_to_script_with_whitespace():
+    res = clash.translate_args_to_script(args=["echo", "hello world"])
+
+    assert res == "echo 'hello world'"
+
+def test_argument_to_script():
+    res = clash.translate_args_to_script(args=["echo", "world"])
+
+    assert res == "echo world"
+
+
 class TestJob:
     def setup(self):
         self.gcloud = CloudSdkStub()
@@ -223,14 +234,14 @@ class TestJob:
     def test_running_a_job_creates_an_instance_template(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
-        job.run("")
+        job.run(args=[])
 
         self.gcloud.get_compute_client().instanceTemplates.return_value.insert.return_value.execute.assert_called()
 
     def test_running_a_job_creates_a_managed_instance_group(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
-        job.run("")
+        job.run(args=[])
 
         self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.assert_called()
 
@@ -241,7 +252,7 @@ class TestJob:
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         with pytest.raises(Exception) as e_info:
-            job.run("")
+            job.run(args=[])
 
         self.gcloud.get_subscriber().delete_subscription.assert_called_with(
             f"{TEST_JOB_CONFIG['project_id']}/{job.name}"
@@ -254,7 +265,7 @@ class TestJob:
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
         with pytest.raises(Exception) as e_info:
-            job.run("")
+            job.run(args=[])
 
         self.gcloud.get_publisher().delete_topic.assert_called_with(
             f"{TEST_JOB_CONFIG['project_id']}/{job.name}"
@@ -263,7 +274,7 @@ class TestJob:
     def test_running_a_job_creates_a_topic_path(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
-        job.run("")
+        job.run(args=[])
 
         self.gcloud.get_publisher().topic_path.assert_called_with(
             TEST_JOB_CONFIG["project_id"], job.name
@@ -274,7 +285,7 @@ class TestJob:
         mock_uuid_call.return_value = 1234
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
-        job.run("")
+        job.run(args=[])
 
         self.gcloud.get_publisher().create_topic.assert_called_with(
             f"{TEST_JOB_CONFIG['project_id']}/clash-job-1234",
@@ -293,7 +304,7 @@ class TestJob:
         message.message = MagicMock(data='{"status": 0}')
         self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
+        job.run(args=[])
 
         job.attach()  # throws no exception
 
@@ -308,7 +319,7 @@ class TestJob:
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
 
-        job.run("")
+        job.run(args=[])
 
         self.gcloud.get_subscriber().create_subscription.assert_called_with(
             "mysubscription", "mytopic"
@@ -322,7 +333,7 @@ class TestJob:
             lambda x, y: "mysubscription"
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
+        job.run(args=[])
 
         result = job.attach()
 
@@ -338,7 +349,7 @@ class TestJob:
             lambda x, y: "mysubscription"
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
+        job.run(args=[])
 
         result = job.attach()
 
@@ -351,7 +362,7 @@ class TestJob:
         message.message = MagicMock(data='{"status": 127}')
         self.gcloud.get_subscriber().pull.return_value.received_messages = [message]
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
+        job.run(args=[])
 
         result = job.attach()
 
@@ -365,7 +376,7 @@ class TestJob:
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         result = {"status": -1}
-        job.run("")
+        job.run(args=[])
 
         def callback(status_code):
             result["status"] = status_code
@@ -377,7 +388,7 @@ class TestJob:
     def test_on_finish_does_not_run_callback_when_job_is_still_running(self):
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         result = {"called": False}
-        job.run("")
+        job.run(args=[])
 
         def callback(status_code):
             result["called"] = True
@@ -393,7 +404,7 @@ class TestJob:
             message
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
-        job.run("")
+        job.run(args=[])
 
         job.on_finish(lambda status_code: None)
 
@@ -431,34 +442,34 @@ class TestJobGroup:
 
     def test_runs_a_single_job(self):
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
-        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "hello"]))
 
         group.run()
 
         self.test_factory.create.assert_called_with(name_prefix=f"mygroup-0")
         self.test_job_one.run.assert_called_with(
-            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
+            args=["echo", "hello"], env_vars={}, gcs_mounts={}, gcs_target={}
         )
 
     def test_runs_multiple_jobs(self):
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
-        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
-        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "hello"]))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "world"]))
 
         group.run()
 
         self.test_job_one.run.assert_called_with(
-            script="echo hello", env_vars={}, gcs_mounts={}, gcs_target={}
+            args=["echo", "hello"], env_vars={}, gcs_mounts={}, gcs_target={}
         )
         self.test_job_two.run.assert_called_with(
-            script="echo world", env_vars={}, gcs_mounts={}, gcs_target={}
+            args=["echo", "world"], env_vars={}, gcs_mounts={}, gcs_target={}
         )
 
     def test_passes_runtime_spec_to_job(self):
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
         group.add_job(
             clash.JobRuntimeSpec(
-                script="_",
+                args=["_"],
                 env_vars={"FOO": "bar"},
                 gcs_mounts={"bucket_name": "mount_dir"},
                 gcs_target={"artifacts_dir", "bucket_name"},
@@ -468,7 +479,7 @@ class TestJobGroup:
         group.run()
 
         self.test_job_one.run.assert_called_with(
-            script="_",
+            args=["_"],
             env_vars={"FOO": "bar"},
             gcs_mounts={"bucket_name": "mount_dir"},
             gcs_target={"artifacts_dir", "bucket_name"},
@@ -476,8 +487,8 @@ class TestJobGroup:
 
     def test_attach_returns_true_when_all_jobs_have_finished_sucessfully(self):
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
-        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
-        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "hello"]))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "world"]))
         group.run()
 
         result = group.wait()
@@ -487,8 +498,8 @@ class TestJobGroup:
     def test_attach_returns_false_when_a_job_has_failed(self):
         self.test_job_two.on_finish.side_effect = lambda callback: callback(1)
         group = clash.JobGroup(name="mygroup", job_factory=self.test_factory)
-        group.add_job(clash.JobRuntimeSpec(script="echo hello"))
-        group.add_job(clash.JobRuntimeSpec(script="echo world"))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "hello"]))
+        group.add_job(clash.JobRuntimeSpec(args=["echo", "world"]))
         group.run()
 
         result = group.wait()

@@ -1,7 +1,7 @@
 """ Clash """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import List, Dict, Optional, Any
 import uuid
 import copy
 import json
@@ -254,12 +254,12 @@ class JobRuntimeSpec:
 
     def __init__(
         self,
-        script,
+        args: List[str],
         env_vars: Optional[Dict[str, str]] = None,
         gcs_mounts: Optional[Dict[str, str]] = None,
         gcs_target: Optional[Dict[str, str]] = None,
     ):
-        self.script = script
+        self.args = args
         self.env_vars = env_vars or {}
         self.gcs_mounts = gcs_mounts or {}
         self.gcs_target = gcs_target or {}
@@ -311,7 +311,7 @@ class JobGroup:
         for spec_id, spec in enumerate(self.job_specs):
             job = self.job_factory.create(name_prefix=f"{self.name}-{spec_id}")
             job.run(
-                script=spec.script,
+                args=spec.args,
                 env_vars=spec.env_vars,
                 gcs_mounts=spec.gcs_mounts,
                 gcs_target=spec.gcs_target,
@@ -340,6 +340,16 @@ class JobGroup:
 
     def is_group(self):
         return True
+
+
+def translate_args_to_script(args: List[str]):
+    res = []
+    for arg in args:
+        if " " in arg:
+            res.append(f"'{arg}'")
+        else:
+            res.append(arg)
+    return " ".join(res)
 
 
 class Job:
@@ -414,7 +424,7 @@ class Job:
 
     def run(
         self,
-        script,
+        args: List[str],
         env_vars: Optional[Dict[str, str]] = None,
         gcs_target: Optional[Dict[str, str]] = None,
         gcs_mounts: Optional[Dict[str, str]] = None,
@@ -434,6 +444,7 @@ class Job:
         env_vars = env_vars or {}
         gcs_target = gcs_target or {}
         gcs_mounts = gcs_mounts or {}
+        script = translate_args_to_script(args)
 
         machine_config = self._create_machine_config(
             script, env_vars, gcs_target, gcs_mounts
