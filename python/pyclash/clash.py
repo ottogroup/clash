@@ -49,8 +49,6 @@ DEFAULT_JOB_CONFIG = {
 class JobConfigBuilder:
     """ Builds configurations for jobs """
 
-    # pylint: disable=missing-function-docstring
-
     def __init__(self, base_config: Optional[Dict[str, Any]] = None):
         self.config = copy.deepcopy(base_config or DEFAULT_JOB_CONFIG)
 
