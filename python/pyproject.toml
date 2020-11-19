@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "pyclash"
+version = "0.1.1"
+description = "Running jobs on the Google Compute Engine"
+authors = ["Mike Czech <mike.czech@ottogroup.com>"]
+license = "Apache License, Version 2.0"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+google-api-python-client = "^1.7.11"
+google-cloud-pubsub = "^1.2.0"
+google-cloud-logging = "^1.14.0"
+requests = "^2.20.0"
+jinja2 = "^2.10.1"
+urllib3 = "^1.24.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+docker = "*"
+mock = "*"
+setuptools = "*"
+wheel = "*"
+twine = "*"
+pyyaml = ">=4.2b1"
+black = "*"
+pylint = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -8,27 +8,27 @@ function task_usage {
 }
 
 function task_lint {
-  pipenv run pylint python/
+  cd python
+  (poetry install && poetry run pylint pyclash/)
 }
 
 function task_format {
-  pipenv run black python/
+  cd python
+  (poetry install && poetry run black pyclash/)
 }
 
 function task_unit_test {
   cd python
-  pipenv run python setup.py develop
-  pipenv run pytest tests/test_clash.py "$@"
+  (poetry install && poetry run pytest tests/test_clash.py "$@")
 }
 
 function task_package {
-  cd python
-  pipenv run python setup.py sdist bdist_wheel
+  (cd python && poetry build)
 }
 
 function task_release {
   cd python
-  pipenv run twine upload dist/*
+  (poetry install && poetry run twine upload dist/*)
 }
 
 function task_deploy_airflow_plugin {
@@ -54,8 +54,7 @@ function task_integration_test {
   fi
 
   cd python
-  pipenv run python setup.py develop
-  pipenv run python ../examples/job.py
+  (poetry install && poetry run python ../examples/job.py)
 }
 
 
