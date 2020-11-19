@@ -13,6 +13,7 @@ google-cloud-logging = "^1.14.0"
 requests = "^2.20.0"
 jinja2 = "^2.10.1"
 urllib3 = "^1.24.2"
+click = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
@@ -28,3 +29,6 @@ pylint = "*"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+clash = 'pyclash.cli:cli'
