@@ -207,10 +207,10 @@ class MachineConfig:
 
     def to_dict(self):
         """
-            Creates the machine configuration
+        Creates the machine configuration
 
-            Returns:
-                dict: the configuration
+        Returns:
+            dict: the configuration
         """
         image_response = (
             self.compute.images()
