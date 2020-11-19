@@ -1,15 +1,14 @@
-import argparse
+""" Clash """
+
 import logging
+from typing import Dict, Optional, Any
 import uuid
 import copy
 import json
 import time
-import os.path
-import sys
+
 import os
-from subprocess import call
-from threading import Lock
-from collections import namedtuple
+import os.path
 
 import jinja2
 import googleapiclient.discovery
@@ -48,8 +47,12 @@ DEFAULT_JOB_CONFIG = {
 
 
 class JobConfigBuilder:
-    def __init__(self, base_config=DEFAULT_JOB_CONFIG):
-        self.config = copy.deepcopy(base_config)
+    """ Builds configurations for jobs """
+
+    # pylint: disable=missing-function-docstring
+
+    def __init__(self, base_config: Optional[Dict[str, Any]] = None):
+        self.config = copy.deepcopy(base_config or DEFAULT_JOB_CONFIG)
 
     def project_id(self, project_id):
         self.config["project_id"] = project_id
@@ -144,7 +147,13 @@ class CloudInitConfig:
     """
 
     def __init__(
-        self, vm_name, script, job_config, env_vars={}, gcs_target={}, gcs_mounts={}
+        self,
+        vm_name,
+        script,
+        job_config,
+        env_vars: Optional[Dict[str, str]] = None,
+        gcs_target: Optional[Dict[str, str]] = None,
+        gcs_mounts: Optional[Dict[str, str]] = None,
     ):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(
@@ -154,9 +163,9 @@ class CloudInitConfig:
         self.vm_name = vm_name
         self.script = script
         self.job_config = job_config
-        self.env_vars = env_vars
-        self.gcs_target = gcs_target
-        self.gcs_mounts = gcs_mounts
+        self.env_vars = env_vars or {}
+        self.gcs_target = gcs_target or {}
+        self.gcs_mounts = gcs_mounts or {}
 
     def render(self):
         """
@@ -243,11 +252,19 @@ class MachineConfig:
 
 
 class JobRuntimeSpec:
-    def __init__(self, script, env_vars={}, gcs_mounts={}, gcs_target={}):
+    """ Specifies runtime properties of jobs """
+
+    def __init__(
+        self,
+        script,
+        env_vars: Optional[Dict[str, str]] = None,
+        gcs_mounts: Optional[Dict[str, str]] = None,
+        gcs_target: Optional[Dict[str, str]] = None,
+    ):
         self.script = script
-        self.env_vars = env_vars
-        self.gcs_mounts = gcs_mounts
-        self.gcs_target = gcs_target
+        self.env_vars = env_vars or {}
+        self.gcs_mounts = gcs_mounts or {}
+        self.gcs_target = gcs_target or {}
 
 
 class JobFactory:
@@ -302,9 +319,7 @@ class JobGroup:
                 gcs_target=spec.gcs_target,
             )
             # arrays are thread-safe in Python (due to GIL)
-            job.on_finish(
-                lambda status_code: self.jobs_status_codes.append(status_code)
-            )
+            job.on_finish(self.jobs_status_codes.append)
             self.running_jobs.append(job)
 
     def wait(self):
@@ -313,7 +328,7 @@ class JobGroup:
 
         :returns true if all jobs succeeded else false
         """
-        while not len(self.jobs_status_codes) == len(self.running_jobs):
+        while len(self.jobs_status_codes) != len(self.running_jobs):
             time.sleep(1)
 
         return all(map(lambda code: code == 0, self.jobs_status_codes))
@@ -336,10 +351,15 @@ class Job:
 
     POLLING_INTERVAL_SECONDS = 30
 
-    def __init__(self, job_config, name=None, name_prefix=None, gcloud=CloudSdk()):
-        self.gcloud = gcloud
+    def __init__(
+        self, job_config, name=None, name_prefix=None, gcloud: Optional[CloudSdk] = None
+    ):
+        self.gcloud = gcloud or CloudSdk()
         self.job_config = job_config
         self.started = False
+
+        self.job_status_topic = None
+        self.job_status_subscription = None
 
         if not name:
             self.name = "clash-job-{}".format(str(uuid.uuid1())[0:16])
@@ -349,6 +369,7 @@ class Job:
             self.name = name
 
     def _wait_for_operation(self, operation, is_global_op):
+        """ Waits for an GCE operation to finish """
         compute = self.gcloud.get_compute_client()
         operations_client = (
             compute.globalOperations() if is_global_op else compute.zoneOperations()
@@ -369,6 +390,7 @@ class Job:
             time.sleep(1)
 
     def _create_instance_template(self, machine_config):
+        """ Creates a GCE Instance Template and waits for it """
         template_op = (
             self.gcloud.get_compute_client()
             .instanceTemplates()
@@ -393,7 +415,12 @@ class Job:
         ).execute()
 
     def run(
-        self, script, env_vars={}, gcs_target={}, gcs_mounts={}, wait_for_result=False
+        self,
+        script,
+        env_vars: Optional[Dict[str, str]] = None,
+        gcs_target: Optional[Dict[str, str]] = None,
+        gcs_mounts: Optional[Dict[str, str]] = None,
+        wait_for_result=False,
     ):
         """
         Runs a script which is given as a string.
@@ -406,6 +433,9 @@ class Job:
         """
         subscriber = self.gcloud.get_subscriber()
         publisher = self.gcloud.get_publisher()
+        env_vars = env_vars or {}
+        gcs_target = gcs_target or {}
+        gcs_mounts = gcs_mounts or {}
 
         machine_config = self._create_machine_config(
             script, env_vars, gcs_target, gcs_mounts
@@ -436,9 +466,9 @@ class Job:
     def run_file(
         self,
         script_file,
-        env_vars={},
-        gcs_target={},
-        gcs_mounts={},
+        env_vars: Optional[Dict[str, str]] = None,
+        gcs_target: Optional[Dict[str, str]] = None,
+        gcs_mounts: Optional[Dict[str, str]] = None,
         wait_for_result=False,
     ):
         """
@@ -450,6 +480,10 @@ class Job:
             gcs_target (dict): Files which will be copied to GCS when the script is done.
             gcs_mounts (dict): Buckets which will be mounted using gcsfuse (if available).
         """
+        env_vars = env_vars or {}
+        gcs_target = gcs_target or {}
+        gcs_mounts = gcs_mounts or {}
+
         with open(script_file, "r") as f:
             script = f.read()
         return self.run(script, wait_for_result, env_vars, gcs_target)
@@ -512,6 +546,7 @@ class Job:
                 return json.loads(message.data)
 
     def _pull_message(self, subscriber, subscription_path):
+        """ Pulls a PubSub message """
         response = subscriber.pull(
             subscription_path,
             max_messages=1,
@@ -528,6 +563,7 @@ class Job:
         return None
 
     def _create_status_topic(self, publisher):
+        """ Creates a PubSub topic for the status """
         job_status_topic = publisher.topic_path(
             self.job_config["project_id"], self.name
         )
@@ -546,6 +582,7 @@ class Job:
         return job_status_topic
 
     def _create_status_subscription(self, publisher, subscriber):
+        """ Creates a PubSub subscription for a job's status """
         project_id = self.job_config["project_id"]
         topics = [path.name for path in publisher.list_topics(f"projects/{project_id}")]
 

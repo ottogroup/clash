@@ -9,7 +9,7 @@ function task_usage {
 
 function task_lint {
   cd python
-  (poetry install && poetry run pylint pyclash/)
+  (poetry install && poetry run pylint --rcfile pylintrc pyclash/)
 }
 
 function task_format {

@@ -1,0 +1,93 @@
+[MASTER]
+
+[MESSAGES CONTROL]
+
+disable =
+    cyclic-import,
+    fixme,
+    import-error,
+    locally-disabled,
+    locally-enabled,
+    no-member,
+    no-name-in-module,
+    no-self-use,
+    no-else-return,
+    bad-mcs-classmethod-argument,
+    super-on-old-class,
+    too-many-function-args,
+    bad-continuation,
+    duplicate-code,
+    import-outside-toplevel,
+    raise-missing-from,
+    unnecessary-comprehension,
+    implicit-str-concat,
+    unbalanced-tuple-unpacking,
+    super-with-arguments,
+    consider-using-sys-exit,
+
+[REPORTS]
+
+reports=yes
+
+[SIMILARITIES]
+min-similarity-lines=15
+ignore-imports=yes
+
+
+[VARIABLES]
+
+dummy-variables-rgx=^\*{0,2}(_$|unused_|dummy_)
+
+[LOGGING]
+
+[FORMAT]
+max-line-length=95
+
+no-space-check =
+max-module-lines=1500
+
+[MISCELLANEOUS]
+
+[BASIC]
+
+no-docstring-rgx=(__.*__|main|Test|test)
+docstring-min-length=10
+module-rgx=^(_?[a-z][a-z0-9_]*)|__init__$
+const-rgx=^(_?[A-Z][A-Z0-9_]*|__[a-z0-9_]+__|_?[a-z][a-z0-9_]*)$
+class-attribute-rgx=^(_?[A-Z][A-Z0-9_]*|__[a-z0-9_]+__|_?[a-z][a-z0-9_]*)$
+class-rgx=^_?[A-Z][a-zA-Z0-9]*$
+function-rgx=^(?:(?P<camel_case>_?[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_?[a-z][a-z0-9_]*))$
+method-rgx=^(?:(?P<exempt>__[a-z0-9_]+__|next)|(?P<camel_case>_{0,2}[A-Z][a-zA-Z0-9]*)|(?P<snake_case>_{0,2}[a-z][a-z0-9_]*))$
+attr-rgx=^_{0,2}[a-z][a-z0-9_]*$
+argument-rgx=^[a-zX][a-z0-9_]*$
+variable-rgx=^[a-zX][a-zX0-9_]*$
+inlinevar-rgx=^[a-z][a-z0-9_]*$
+good-names=main,_,X,y,T,Xt,Xs,yt,f,__
+bad-names=
+bad-functions=input,apply,reduce
+
+[TYPECHECK]
+
+ignored-modules=numpy,pyodbc
+
+[IMPORTS]
+
+[CLASSES]
+defining-attr-methods=__init__,__new__,setUp,fit
+
+[DESIGN]
+
+max-args = 14
+
+ignored-argument-names=_.*
+max-locals=24
+max-returns=9
+max-branches=21
+max-attributes=19
+min-public-methods=0
+max-public-methods=40
+
+[ELIF]
+max-nested-blocks=6
+
+[EXCEPTIONS]
