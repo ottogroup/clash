@@ -40,7 +40,6 @@ def run(name, project, image, subnetwork, serviceaccount, preemptible, machine_t
 
     print("Priniting logs (max. 2MB):")
     print("--------------------------")
-    breakpoint()
     sys.stdout.write(base64.b64decode(result["logs"]).decode("utf-8"))
 
     sys.exit(result["status"])
