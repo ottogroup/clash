@@ -24,12 +24,6 @@
   "name": "{{ vm_name }}",
   "networkInterfaces": [
     {
-      "accessConfigs": [
-        {
-          "name": "external-nat",
-          "type": "ONE_TO_ONE_NAT"
-        }
-      ],
       "subnetwork": "https://www.googleapis.com/compute/beta/projects/{{ project_id }}/regions/{{ region }}/subnetworks/{{ subnetwork }}"
     }
   ],
