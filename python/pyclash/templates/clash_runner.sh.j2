@@ -16,7 +16,7 @@ function __trap_clean_up {
 trap __trap_clean_up EXIT
 
 set +e
-docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/script.sh:/var/script.sh $target_docker_mounts --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/script.sh > /tmp/script.log 2>&1
+docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/script.sh:/var/script.sh $target_docker_mounts --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/script.sh 2>&1 | tee /tmp/script.log
 success=$?
 logs=$(docker run -v /tmp/script.log:/tmp/script.log google/cloud-sdk:228.0.0 bash -c 'cat /tmp/script.log | tail -c 2097152 | base64 -w 0')
 set -e
