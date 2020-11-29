@@ -376,6 +376,7 @@ class Job:
 
         self.job_status_topic = None
         self.job_status_subscription = None
+        self.timeout_seconds = timeout_seconds
 
         if not name:
             self.name = "clash-job-{}".format(str(uuid.uuid1())[0:16])
