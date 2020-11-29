@@ -468,18 +468,33 @@ class Job:
             )
             self._create_instance_template(machine_config)
             self._create_managed_instance_group(1)
+            self.started = True
+            if wait_for_result:
+                return self.attach(self.timeout_seconds)
         except Exception as ex:
+            if self.started:
+                try:
+                    self._remove_instance_group()
+                except Exception as e:
+                    logger.warning(
+                        f"Could not remove instance group (not running?). Message: {e}"
+                    )
+
             if self.job_status_topic:
-                publisher.delete_topic(self.job_status_topic)
+                try:
+                    publisher.delete_topic(self.job_status_topic)
+                except Exception as e:
+                    logger.warning(f"Could not remove pubsub topic. Message: {e}")
+
             if self.job_status_subscription:
-                subscriber.delete_subscription(self.job_status_subscription)
+                try:
+                    subscriber.delete_subscription(self.job_status_subscription)
+                except Exception as e:
+                    logger.warning(
+                        f"Could not remove pubsub subscription. Message: {e}"
+                    )
+
             raise ex
-
-        self.started = True
-
-        if wait_for_result:
-            return self.attach(self.timeout_seconds)
-        return None
 
     def run_file(
         self,
@@ -554,6 +569,9 @@ class Job:
     def clean_up(self):
         """
         Deletes resources which are left-overs after a job is complete.
+
+        e.g. instances templates which cannot be deleted before the
+        related instance group is not present anymore.
         """
         if self.started:
             logger.debug("Deleting instance template...")
@@ -571,6 +589,18 @@ class Job:
         )
         self._wait_for_operation(template_op["name"], True)
         logger.debug("Successfully removed instance template.")
+
+    def _remove_instance_group(self):
+        if not self.started:
+            raise Exception("Job is not running")
+        template_op = (
+            self.gcloud.get_compute_client()
+            .instanceGroupManagers()
+            .delete(project=self.job_config["project_id"], resourceId=self.name)
+            .execute()
+        )
+        self._wait_for_operation(template_op["name"], True)
+        logger.debug("Successfully removed managed instance group.")
 
     def attach(self, timeout_seconds: Optional[int] = None) -> Optional[Dict[str, str]]:
         """
