@@ -450,7 +450,7 @@ class Job:
         env_vars: Optional[Dict[str, str]] = None,
         gcs_target: Optional[Dict[str, str]] = None,
         gcs_mounts: Optional[Dict[str, str]] = None,
-        wait_for_result=False,
+        wait_for_result: bool = False,
     ):
         """
         Runs a script which is given as a string.
