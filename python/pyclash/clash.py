@@ -685,12 +685,6 @@ class Job:
 
         return subscription_path
 
-    def _print_logs(self, logs_reader):
-        logs_reader.wait_for_logs_arrival()
-        logs = logs_reader.read_logs(self, Job.POLLING_INTERVAL_SECONDS)
-        for entry in logs:
-            logger.info(entry)
-
     def is_group(self):
         return False
 
