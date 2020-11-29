@@ -435,7 +435,7 @@ class Job:
             )
             .execute()
         )
-        self._wait_for_operation(template_op["name"], True)
+        self._wait_for_operation(template_op["name"], False)
 
     def run(
         self,
@@ -602,10 +602,12 @@ class Job:
         template_op = (
             self.gcloud.get_compute_client()
             .instanceGroupManagers()
-            .delete(project=self.job_config["project_id"], resourceId=self.name)
+            .delete(
+                project=self.job_config["project_id"], instanceGroupManager=self.name
+            )
             .execute()
         )
-        self._wait_for_operation(template_op["name"], True)
+        self._wait_for_operation(template_op["name"], False)
         logger.debug("Successfully removed managed instance group.")
 
     def attach(self, timeout_seconds: Optional[int] = None) -> Optional[Dict[str, str]]:
