@@ -420,16 +420,22 @@ class Job:
         self._wait_for_operation(template_op["name"], True)
 
     def _create_managed_instance_group(self, size):
-        self.gcloud.get_compute_client().instanceGroupManagers().insert(
-            project=self.job_config["project_id"],
-            zone=self.job_config["zone"],
-            body={
-                "baseInstanceName": self.name,
-                "instanceTemplate": f"global/instanceTemplates/{self.name}",
-                "name": self.name,
-                "targetSize": size,
-            },
-        ).execute()
+        template_op = (
+            self.gcloud.get_compute_client()
+            .instanceGroupManagers()
+            .insert(
+                project=self.job_config["project_id"],
+                zone=self.job_config["zone"],
+                body={
+                    "baseInstanceName": self.name,
+                    "instanceTemplate": f"global/instanceTemplates/{self.name}",
+                    "name": self.name,
+                    "targetSize": size,
+                },
+            )
+            .execute()
+        )
+        self._wait_for_operation(template_op["name"], True)
 
     def run(
         self,
