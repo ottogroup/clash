@@ -566,7 +566,7 @@ class Job:
         self._wait_for_operation(template_op["name"], True)
         logger.debug("Successfully removed instance template.")
 
-    def attach(self):
+    def attach(self, timeout: Optional[int] = None) -> Optional[Dict[str, str]]:
         """
         Blocks until the job terminates.
         """
@@ -574,10 +574,13 @@ class Job:
             raise ValueError("The job is not running")
 
         subscriber = self.gcloud.get_subscriber()
-        while True:
+        start_time = time.time()
+        while not timeout or (time.time() - start_time) <= timeout:
             message = self._pull_message(subscriber, self.job_status_subscription)
             if message:
                 return json.loads(message.data)
+
+        raise TimeoutError(f"The job took longer than {timeout} seconds")
 
     def _pull_message(self, subscriber, subscription_path):
         """ Pulls a PubSub message """
