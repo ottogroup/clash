@@ -344,6 +344,12 @@ class JobGroup:
     def is_group(self):
         return True
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.clean_up()
+
 
 def translate_args_to_script(args: List[str]):
     res = []
