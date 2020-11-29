@@ -611,7 +611,9 @@ class Job:
             self.gcloud.get_compute_client()
             .instanceGroupManagers()
             .delete(
-                project=self.job_config["project_id"], instanceGroupManager=self.name
+                project=self.job_config["project_id"],
+                zone=self.job_config["zone"],
+                instanceGroupManager=self.name,
             )
             .execute()
         )
