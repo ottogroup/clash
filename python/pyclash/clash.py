@@ -426,6 +426,7 @@ class Job:
         self._wait_for_operation(template_op["name"], True)
 
     def _create_managed_instance_group(self, size):
+        """ Create GCE Instance Group and waits for it """
         template_op = (
             self.gcloud.get_compute_client()
             .instanceGroupManagers()
@@ -459,6 +460,7 @@ class Job:
             env_vars (dict): Environment variables which can be used by the script.
             gcs_target (dict): Files which will be copied to GCS when the script is done.
             gcs_mounts (dict): Buckets which will be mounted using gcsfuse (if available).
+            wait_for_result (bool): If true, blocks until the job is complete.
         """
         subscriber = self.gcloud.get_subscriber()
         publisher = self.gcloud.get_publisher()
