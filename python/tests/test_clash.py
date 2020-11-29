@@ -246,6 +246,16 @@ class TestJob:
 
         self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.assert_called()
 
+    def test_deletes_instance_template_after_job_is_complete(self):
+        self.gcloud.get_compute_client().instanceGroups.return_value.list.return_value.execute.return_value = {
+            "items": [{"name": "anothergroup"}]
+        }
+
+        with clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud) as job:
+            job.run(args=[])
+
+        self.gcloud.get_compute_client().instanceTemplates.return_value.delete.return_value.execute.assert_called()
+
     def test_removes_subscription_if_job_creation_failed(self):
         self.gcloud.get_compute_client().instanceGroupManagers.return_value.insert.return_value.execute.side_effect = Exception(
             "Failure!"

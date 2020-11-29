@@ -525,12 +525,33 @@ class Job:
             self.job_status_subscription, pubsub_callback
         )
 
+    def _retrieve_active_instance_groups(self) -> List[str]:
+        res = []
+        for group in (
+            self.gcloud.get_compute_client()
+            .instanceGroups()
+            .list(project=self.job_config["project_id"], zone=self.job_config["zone"])
+            .execute()["items"]
+        ):
+            res.append(group["name"])
+        return res
+
+    def _wait_for_instance_group_removal(self) -> None:
+        while True:
+            active_instance_groups = self._retrieve_active_instance_groups()
+            if self.name in active_instance_groups:
+                logger.debug("Instance group is still active. Waiting...")
+                time.sleep(Job.POLLING_INTERVAL_SECONDS)
+            else:
+                break
+
     def clean_up(self):
         """
-        Deletes resources which are left-overs after a job is complete. Currently,
-        this method is just a workaround until we find a better solution.
+        Deletes resources which are left-overs after a job is complete.
         """
         if self.started:
+            logger.debug("Deleting instance template...")
+            self._wait_for_instance_group_removal()
             self._remove_instance_template()
 
     def _remove_instance_template(self):
@@ -543,6 +564,7 @@ class Job:
             .execute()
         )
         self._wait_for_operation(template_op["name"], True)
+        logger.debug("Successfully removed instance template.")
 
     def attach(self):
         """
@@ -614,3 +636,9 @@ class Job:
 
     def is_group(self):
         return False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.clean_up()

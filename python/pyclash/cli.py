@@ -38,10 +38,9 @@ def run(
     if serviceaccount:
         config.service_account(serviceaccount)
 
-    result = Job(job_config=config.build(), name_prefix=name).run(arg, wait_for_result=True)
+    with Job(job_config=config.build(), name_prefix=name) as job:
+        result = job.run(arg, wait_for_result=True)
+        sys.stdout.write(base64.b64decode(result["logs"]).decode("utf-8"))
+        sys.exit(result["status"])
 
-    print("Priniting logs (max. 2MB):")
-    print("--------------------------")
-    sys.stdout.write(base64.b64decode(result["logs"]).decode("utf-8"))
-
-    sys.exit(result["status"])
+    sys.exit(-3)
