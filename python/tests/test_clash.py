@@ -62,16 +62,16 @@ class CloudSdkStub:
         self.publisher.topic_path.side_effect = lambda project, name: "{}/{}".format(
             project, name
         )
-        self.publisher.create_topic.side_effect = lambda topic, message_storage_policy: self.topics.append(
-            Topic(name=topic)
+        self.publisher.create_topic.side_effect = (
+            lambda topic, message_storage_policy: self.topics.append(Topic(name=topic))
         )
 
         self.subscriber = MagicMock()
         self.subscriber.topic_path.side_effect = lambda project, name: "{}/{}".format(
             project, name
         )
-        self.subscriber.subscription_path.side_effect = lambda project, name: "{}/{}".format(
-            project, name
+        self.subscriber.subscription_path.side_effect = (
+            lambda project, name: "{}/{}".format(project, name)
         )
 
         self.logging_client = MagicMock()
@@ -204,6 +204,7 @@ def test_argument_to_script_with_whitespace():
     res = clash.translate_args_to_script(args=["echo", "hello world"])
 
     assert res == "echo 'hello world'"
+
 
 def test_argument_to_script():
     res = clash.translate_args_to_script(args=["echo", "world"])
@@ -371,8 +372,8 @@ class TestJob:
     def test_on_finish_runs_callback_when_job_is_complete(self):
         message = MagicMock()
         message.data = '{ "status": 0 }'
-        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(
-            message
+        self.gcloud.get_subscriber().subscribe.side_effect = (
+            lambda path, callback: callback(message)
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         result = {"status": -1}
@@ -400,8 +401,8 @@ class TestJob:
     def test_on_finish_acknowledges_message(self):
         message = MagicMock()
         message.data = '{ "status": 0 }'
-        self.gcloud.get_subscriber().subscribe.side_effect = lambda path, callback: callback(
-            message
+        self.gcloud.get_subscriber().subscribe.side_effect = (
+            lambda path, callback: callback(message)
         )
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run(args=[])

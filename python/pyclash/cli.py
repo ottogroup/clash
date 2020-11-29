@@ -24,7 +24,9 @@ def cli():
     "--machine-type", type=click.STRING, default="n1-standard-1", required=False
 )
 @click.option("--arg", type=click.STRING, required=True, multiple=True)
-def run(name, project, image, subnetwork, serviceaccount, preemptible, machine_type, arg):
+def run(
+    name, project, image, subnetwork, serviceaccount, preemptible, machine_type, arg
+):
     config = (
         JobConfigBuilder()
         .project_id(project)

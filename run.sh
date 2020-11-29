@@ -40,7 +40,7 @@ function task_lint {
 
 function task_format {
   cd python
-  (poetry install && poetry run black pyclash/)
+  (poetry install && poetry run black pyclash/ tests/)
 }
 
 function task_unit_test {
