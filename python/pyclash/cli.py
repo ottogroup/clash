@@ -20,12 +20,21 @@ def cli():
 @click.option("--subnetwork", type=click.STRING, required=True)
 @click.option("--serviceaccount", type=click.STRING, required=False, default=None)
 @click.option("--preemptible", type=click.BOOL, required=False, default=False)
+@click.option("--timeout", type=click.INT, required=False, default=60 * 60)
 @click.option(
     "--machine-type", type=click.STRING, default="n1-standard-1", required=False
 )
 @click.option("--arg", type=click.STRING, required=True, multiple=True)
 def run(
-    name, project, image, subnetwork, serviceaccount, preemptible, machine_type, arg
+    name,
+    project,
+    image,
+    subnetwork,
+    serviceaccount,
+    preemptible,
+    timeout,
+    machine_type,
+    arg,
 ):
     config = (
         JobConfigBuilder()
@@ -38,7 +47,9 @@ def run(
     if serviceaccount:
         config.service_account(serviceaccount)
 
-    with Job(job_config=config.build(), name_prefix=name) as job:
+    with Job(
+        job_config=config.build(), name_prefix=name, timeout_seconds=timeout
+    ) as job:
         result = job.run(arg, wait_for_result=True)
         sys.stdout.write(base64.b64decode(result["logs"]).decode("utf-8"))
         sys.exit(result["status"])

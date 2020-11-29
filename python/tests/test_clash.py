@@ -375,7 +375,7 @@ class TestJob:
         job = clash.Job(TEST_JOB_CONFIG, gcloud=self.gcloud)
         job.run(args=[])
 
-        result = job.attach(timeout=1)
+        result = job.attach(timeout_seconds=1)
 
         assert result["status"] == 127
 
@@ -385,7 +385,7 @@ class TestJob:
         job.run(args=[])
 
         with pytest.raises(TimeoutError) as e_info:
-            result = job.attach(timeout=1)
+            result = job.attach(timeout_seconds=1)
 
     def test_on_finish_runs_callback_when_job_is_complete(self):
         message = MagicMock()

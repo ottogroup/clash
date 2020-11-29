@@ -363,7 +363,12 @@ class Job:
     POLLING_INTERVAL_SECONDS = 30
 
     def __init__(
-        self, job_config, name=None, name_prefix=None, gcloud: Optional[CloudSdk] = None
+        self,
+        job_config,
+        name=None,
+        name_prefix=None,
+        gcloud: Optional[CloudSdk] = None,
+        timeout_seconds: Optional[int] = None,
     ):
         self.gcloud = gcloud or CloudSdk()
         self.job_config = job_config
@@ -472,7 +477,7 @@ class Job:
         self.started = True
 
         if wait_for_result:
-            return self.attach()
+            return self.attach(self.timeout_seconds)
         return None
 
     def run_file(
@@ -566,7 +571,7 @@ class Job:
         self._wait_for_operation(template_op["name"], True)
         logger.debug("Successfully removed instance template.")
 
-    def attach(self, timeout: Optional[int] = None) -> Optional[Dict[str, str]]:
+    def attach(self, timeout_seconds: Optional[int] = None) -> Optional[Dict[str, str]]:
         """
         Blocks until the job terminates.
         """
@@ -575,12 +580,12 @@ class Job:
 
         subscriber = self.gcloud.get_subscriber()
         start_time = time.time()
-        while not timeout or (time.time() - start_time) <= timeout:
+        while not timeout_seconds or (time.time() - start_time) <= timeout_seconds:
             message = self._pull_message(subscriber, self.job_status_subscription)
             if message:
                 return json.loads(message.data)
 
-        raise TimeoutError(f"The job took longer than {timeout} seconds")
+        raise TimeoutError(f"The job took longer than {timeout_seconds} seconds")
 
     def _pull_message(self, subscriber, subscription_path):
         """ Pulls a PubSub message """
