@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyclash"
-version = "0.1.1"
+version = "0.2.0"
 description = "Running jobs on the Google Compute Engine"
 authors = ["Mike Czech <mike.czech@ottogroup.com>"]
 license = "Apache License, Version 2.0"
