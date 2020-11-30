@@ -17,7 +17,12 @@ trap __trap_clean_up EXIT
 
 set +e
 docker run {% if privileged %}--privileged{% endif %} --env-file /var/clash.env -v /var/script.sh:/var/script.sh $target_docker_mounts --log-driver=gcplogs --name=clash-runner {{ image }} bash /var/script.sh 2>&1 | tee /tmp/script.log
-success=$?
+
+{% raw %}
+success=$(docker inspect clash-runner --format='{{.State.ExitCode}}')
+{% endraw %}
+
+# fetch 2MB logs (due to a PubSub restriction)
 logs=$(docker run -v /tmp/script.log:/tmp/script.log google/cloud-sdk:228.0.0 bash -c 'cat /tmp/script.log | tail -c 2097152 | base64 -w 0')
 set -e
 
