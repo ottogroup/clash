@@ -1,6 +1,5 @@
 
 # Clash
-> **WARNING**: This is a very young project. Although Clash is already used in production environments, the  Python API is still an *alpha release* and might change in the near future.
 
 *Clash* is a simple Python library for running jobs on the [Google Compute Engine](https://cloud.google.com/compute/). Typical use cases are batch jobs which require very specific hardware configurations at runtime (e.g. multiple GPUs for model training). The library offers the following features:
 
