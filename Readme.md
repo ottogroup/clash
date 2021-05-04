@@ -48,7 +48,7 @@ JOB_CONFIG = (
 )
 
 result = Job(job_config=JOB_CONFIG, name_prefix="myjob").run(
-    "echo 'hello world'", wait_for_result=True
+    ["echo", "hello world"], wait_for_result=True
 )
 
 if result["status"] != 0:
